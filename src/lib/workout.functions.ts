@@ -486,7 +486,7 @@ export const getDashboard = createServerFn({ method: "GET" })
 
 export const getHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ filter: z.enum(["alla", "styrka", "cirkel", "löpning"]).default("alla") }).parse(d))
+  .inputValidator((d: unknown) => z.object({ filter: z.enum(["alla", "styrka", "cirkel", "löpning", "cykling", "promenad"]).default("alla") }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     let q = supabase.from("workouts").select("*, running_sessions(*)").eq("user_id", userId).order("date", { ascending: false });
