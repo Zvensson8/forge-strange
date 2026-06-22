@@ -247,4 +247,4 @@ export async function computeGoalsWithProgress(supabase: any, userId: string) {
         today_iso: todayISO,
       };
     });
-  });
+}
