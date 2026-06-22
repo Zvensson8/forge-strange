@@ -77,6 +77,74 @@ export type Database = {
         }
         Relationships: []
       }
+      goals: {
+        Row: {
+          created_at: string
+          exercise_id: string | null
+          goal_type: string
+          id: string
+          notes: string | null
+          reminder_cadence: string | null
+          reminder_enabled: boolean
+          session_type: string | null
+          start_date: string
+          status: string
+          target_date: string | null
+          target_reps: number | null
+          target_unit: string
+          target_value: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_id?: string | null
+          goal_type: string
+          id?: string
+          notes?: string | null
+          reminder_cadence?: string | null
+          reminder_enabled?: boolean
+          session_type?: string | null
+          start_date?: string
+          status?: string
+          target_date?: string | null
+          target_reps?: number | null
+          target_unit: string
+          target_value: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          exercise_id?: string | null
+          goal_type?: string
+          id?: string
+          notes?: string | null
+          reminder_cadence?: string | null
+          reminder_enabled?: boolean
+          session_type?: string | null
+          start_date?: string
+          status?: string
+          target_date?: string | null
+          target_reps?: number | null
+          target_unit?: string
+          target_value?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
