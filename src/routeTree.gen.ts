@@ -19,6 +19,7 @@ import { Route as AuthenticatedAchievementsRouteImport } from './routes/_authent
 import { Route as AuthenticatedHistoryIndexRouteImport } from './routes/_authenticated/history.index'
 import { Route as AuthenticatedLogStrengthRouteImport } from './routes/_authenticated/log.strength'
 import { Route as AuthenticatedLogRunningRouteImport } from './routes/_authenticated/log.running'
+import { Route as AuthenticatedLogQuickRouteImport } from './routes/_authenticated/log.quick'
 import { Route as AuthenticatedLogCircuitRouteImport } from './routes/_authenticated/log.circuit'
 import { Route as AuthenticatedHistoryIdRouteImport } from './routes/_authenticated/history.$id'
 
@@ -74,6 +75,11 @@ const AuthenticatedLogRunningRoute = AuthenticatedLogRunningRouteImport.update({
   path: '/log/running',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLogQuickRoute = AuthenticatedLogQuickRouteImport.update({
+  id: '/log/quick',
+  path: '/log/quick',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLogCircuitRoute = AuthenticatedLogCircuitRouteImport.update({
   id: '/log/circuit',
   path: '/log/circuit',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/history/$id': typeof AuthenticatedHistoryIdRoute
   '/log/circuit': typeof AuthenticatedLogCircuitRoute
+  '/log/quick': typeof AuthenticatedLogQuickRoute
   '/log/running': typeof AuthenticatedLogRunningRoute
   '/log/strength': typeof AuthenticatedLogStrengthRoute
   '/history/': typeof AuthenticatedHistoryIndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/history/$id': typeof AuthenticatedHistoryIdRoute
   '/log/circuit': typeof AuthenticatedLogCircuitRoute
+  '/log/quick': typeof AuthenticatedLogQuickRoute
   '/log/running': typeof AuthenticatedLogRunningRoute
   '/log/strength': typeof AuthenticatedLogStrengthRoute
   '/history': typeof AuthenticatedHistoryIndexRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/history/$id': typeof AuthenticatedHistoryIdRoute
   '/_authenticated/log/circuit': typeof AuthenticatedLogCircuitRoute
+  '/_authenticated/log/quick': typeof AuthenticatedLogQuickRoute
   '/_authenticated/log/running': typeof AuthenticatedLogRunningRoute
   '/_authenticated/log/strength': typeof AuthenticatedLogStrengthRoute
   '/_authenticated/history/': typeof AuthenticatedHistoryIndexRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/history/$id'
     | '/log/circuit'
+    | '/log/quick'
     | '/log/running'
     | '/log/strength'
     | '/history/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/history/$id'
     | '/log/circuit'
+    | '/log/quick'
     | '/log/running'
     | '/log/strength'
     | '/history'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/history/$id'
     | '/_authenticated/log/circuit'
+    | '/_authenticated/log/quick'
     | '/_authenticated/log/running'
     | '/_authenticated/log/strength'
     | '/_authenticated/history/'
@@ -247,6 +259,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLogRunningRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/log/quick': {
+      id: '/_authenticated/log/quick'
+      path: '/log/quick'
+      fullPath: '/log/quick'
+      preLoaderRoute: typeof AuthenticatedLogQuickRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/log/circuit': {
       id: '/_authenticated/log/circuit'
       path: '/log/circuit'
@@ -271,6 +290,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedHistoryIdRoute: typeof AuthenticatedHistoryIdRoute
   AuthenticatedLogCircuitRoute: typeof AuthenticatedLogCircuitRoute
+  AuthenticatedLogQuickRoute: typeof AuthenticatedLogQuickRoute
   AuthenticatedLogRunningRoute: typeof AuthenticatedLogRunningRoute
   AuthenticatedLogStrengthRoute: typeof AuthenticatedLogStrengthRoute
   AuthenticatedHistoryIndexRoute: typeof AuthenticatedHistoryIndexRoute
@@ -283,6 +303,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedHistoryIdRoute: AuthenticatedHistoryIdRoute,
   AuthenticatedLogCircuitRoute: AuthenticatedLogCircuitRoute,
+  AuthenticatedLogQuickRoute: AuthenticatedLogQuickRoute,
   AuthenticatedLogRunningRoute: AuthenticatedLogRunningRoute,
   AuthenticatedLogStrengthRoute: AuthenticatedLogStrengthRoute,
   AuthenticatedHistoryIndexRoute: AuthenticatedHistoryIndexRoute,
