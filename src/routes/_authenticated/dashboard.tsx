@@ -9,7 +9,7 @@ import { StreakBadge } from "@/components/forge/StreakBadge";
 import { LevelBar } from "@/components/forge/LevelBar";
 import { Heatmap } from "@/components/forge/Heatmap";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell } from "lucide-react";
+import { Dumbbell, Timer, Footprints, Bike, Trees, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell, History as HistoryIcon } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { formatDateSv, formatPace } from "@/lib/forge-utils";
