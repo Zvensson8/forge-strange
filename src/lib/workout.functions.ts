@@ -38,7 +38,7 @@ async function updateStatsAndAchievements(
   supabase: any,
   userId: string,
   payload: {
-    session_type: "styrka" | "cirkel" | "löpning";
+    session_type: string;
     date: string;
     had_pr: boolean;
     xp_base: number;
