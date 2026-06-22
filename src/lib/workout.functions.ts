@@ -896,10 +896,16 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
               pr_antal: summary.pr_count,
               snitt_energi: summary.energy_avg,
             }) +
+            (goalStatuses.length
+              ? "\n\nAktiva mål (med aktuell takt):\n" + JSON.stringify(goalStatuses)
+              : "") +
             "\n\nGe EXAKT 3 punkter på svenska, varje punkt 1–2 meningar. " +
             "Var konkret och personlig: hänvisa till specifika veckodagar, mönster, kombinationer av passtyper eller energinivåer. " +
+            (goalStatuses.length
+              ? "MINST EN punkt MÅSTE handla om hur veckan påverkar något av de aktiva målen – nämn målet vid namn och säg vad som krävs nästa vecka. "
+              : "") +
             "Undvik generiska råd som 'bra jobbat', 'fortsätt så' eller 'kom ihåg att vila'. " +
-            "Föreslå EN konkret handling per punkt (t.ex. 'flytta ett kort styrkepass till lördag', 'kombinera löpning med cirkel på onsdag'). " +
+            "Föreslå EN konkret handling per punkt (t.ex. 'flytta ett kort styrkepass till lördag', 'lägg en löprunda på 5 km onsdag för att hålla halvmaraton-takten'). " +
             "Format: bara tre punkter med '- ' framför. Ingen rubrik, ingen disclaimer.",
         });
         insights = text.trim();
@@ -909,10 +915,14 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     }
 
     if (!insights) {
+      const goalLine = goalStatuses.length
+        ? `\n- Mål "${goalStatuses[0].title}": ${goalStatuses[0].pace} (${goalStatuses[0].progress_pct}%). Logga relevant pass för att hålla takten.`
+        : "";
       insights = summary.total === 0
-        ? "- Veckan är fortfarande öppen – ett 15-minuters minipass idag håller din streak vid liv.\n- Lägg ett kort cirkelpass på lunchen för att bryta stillasittande.\n- Plocka en löprunda på 20 min i kväll om vädret tillåter."
-        : `- Du har ${summary.total} pass och ${summary.days_trained} träningsdagar – bygg vidare med ett kort pass till innan veckan tar slut.\n- Balansen ${summary.strength}/${summary.circuit}/${summary.running} (styrka/cirkel/löpning) ser ${summary.strength === 0 ? "tunn ut på styrka – lägg ett kort styrkepass" : "stabil ut"}.\n- Streak: ${summary.current_streak} dagar. Skydda den med ett minipass på lågmotivationsdagar.`;
+        ? "- Veckan är fortfarande öppen – ett 15-minuters minipass idag håller din streak vid liv.\n- Lägg ett kort cirkelpass på lunchen för att bryta stillasittande." + (goalLine || "\n- Plocka en löprunda på 20 min i kväll om vädret tillåter.")
+        : `- Du har ${summary.total} pass och ${summary.days_trained} träningsdagar – bygg vidare med ett kort pass till innan veckan tar slut.\n- Balansen ${summary.strength}/${summary.circuit}/${summary.running} (styrka/cirkel/löpning) ser ${summary.strength === 0 ? "tunn ut på styrka – lägg ett kort styrkepass" : "stabil ut"}.` + (goalLine || `\n- Streak: ${summary.current_streak} dagar. Skydda den med ett minipass på lågmotivationsdagar.`);
     }
+
 
     return { summary, insights };
   });
