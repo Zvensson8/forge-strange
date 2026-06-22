@@ -11,25 +11,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { todayISO, formatPace } from "@/lib/forge-utils";
+import { todayISO, formatPace, type DistanceType } from "@/lib/forge-utils";
 
 export const Route = createFileRoute("/_authenticated/log/running")({
-  component: LogRunning,
+  component: () => <LogDistance kind="löpning" title="Löprunda" />,
 });
 
-function LogRunning() {
+const COPY: Record<DistanceType, { paceLabel: string; placeholder: string; saveLabel: string }> = {
+  löpning: { paceLabel: "Snitt pace", placeholder: "Hur kändes det? Rutt, väder…", saveLabel: "Spara löprunda" },
+  cykling: { paceLabel: "Snitt km/h", placeholder: "Rutt, terräng, väder…", saveLabel: "Spara cykeltur" },
+  promenad: { paceLabel: "Snitt pace", placeholder: "Var gick du? Hur kändes det?", saveLabel: "Spara promenad" },
+};
+
+export function LogDistance({ kind, title }: { kind: DistanceType; title: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const fn = useServerFn(logRunning);
-  const [distance, setDistance] = useState(5);
-  const [minutes, setMinutes] = useState(30);
+  const defaults = kind === "löpning" ? { d: 5, m: 30 } : kind === "cykling" ? { d: 15, m: 45 } : { d: 3, m: 30 };
+  const [distance, setDistance] = useState(defaults.d);
+  const [minutes, setMinutes] = useState(defaults.m);
   const [seconds, setSeconds] = useState(0);
-  const [effort, setEffort] = useState(6);
+  const [effort, setEffort] = useState(kind === "promenad" ? 3 : 6);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const totalDur = minutes + seconds / 60;
-  const pace = distance > 0 ? Math.round((totalDur * 60) / distance) : 0;
+  const paceSec = distance > 0 ? Math.round((totalDur * 60) / distance) : 0;
+  const speedKmh = totalDur > 0 ? (distance / (totalDur / 60)) : 0;
 
   async function submit() {
     if (distance <= 0 || totalDur <= 0) {
@@ -41,6 +49,7 @@ function LogRunning() {
       const res = await fn({
         data: {
           date: todayISO(),
+          session_type: kind,
           distance_km: distance,
           duration_minutes: totalDur,
           effort_level: effort,
@@ -50,7 +59,7 @@ function LogRunning() {
       qc.invalidateQueries();
       toast.success(`+${res.xp_gained} XP · Streak ${res.streak} 🔥`, {
         description:
-          (res.prs.includes("distance") ? "Längsta löprundan! " : "") +
+          (res.prs.includes("distance") ? "Längsta passet! " : "") +
           (res.prs.includes("pace") ? "Snabbaste pace! " : "") +
           (res.leveled_up ? `Forge Level ${res.new_level}!` : ""),
       });
@@ -63,19 +72,21 @@ function LogRunning() {
     }
   }
 
+  const copy = COPY[kind];
+
   return (
     <div className="space-y-4 pb-32">
       <header className="flex items-center gap-3">
-        <button onClick={() => navigate({ to: "/dashboard" })} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+        <button onClick={() => navigate({ to: "/log" })} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-xl font-bold">Löprunda</h1>
+        <h1 className="text-xl font-bold">{title}</h1>
       </header>
 
       <Card className="space-y-4 border-border bg-card p-5">
         <div>
           <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">Distans</Label>
-          <Stepper value={distance} step={0.5} onChange={setDistance} suffix="km" />
+          <Stepper value={distance} step={kind === "cykling" ? 1 : 0.5} onChange={setDistance} suffix="km" />
         </div>
         <div>
           <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">Tid</Label>
@@ -85,8 +96,10 @@ function LogRunning() {
           </div>
         </div>
         <div className="rounded-lg bg-muted/40 p-3 text-center">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Snitt pace</p>
-          <p className="font-mono text-2xl font-bold text-primary">{formatPace(pace)} / km</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">{copy.paceLabel}</p>
+          <p className="font-mono text-2xl font-bold text-primary">
+            {kind === "cykling" ? `${speedKmh.toFixed(1)} km/h` : `${formatPace(paceSec)} / km`}
+          </p>
         </div>
         <div>
           <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">
@@ -96,7 +109,7 @@ function LogRunning() {
         </div>
         <div>
           <Label className="mb-2 block text-xs uppercase tracking-wider text-muted-foreground">Anteckning</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Hur kändes det? Rutt, väder…" rows={3} />
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={copy.placeholder} rows={3} />
         </div>
       </Card>
 
@@ -107,7 +120,7 @@ function LogRunning() {
             disabled={submitting}
             className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90"
           >
-            {submitting ? "Sparar…" : "Spara löprunda"}
+            {submitting ? "Sparar…" : copy.saveLabel}
           </Button>
         </div>
       </div>
