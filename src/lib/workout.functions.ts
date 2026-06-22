@@ -824,6 +824,21 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     const energyAvg = energyVals.length ? energyVals.reduce((a, b) => a + b, 0) / energyVals.length : null;
     const energyTrend = energyVals.length >= 2 ? energyVals[energyVals.length - 1] - energyVals[0] : 0;
 
+    const goalStatuses = activeGoals.map((g: any) => {
+      const paceLabel =
+        g.pace === "ahead" ? "Före plan" : g.pace === "on_track" ? "På rätt spår" : g.pace === "behind" ? "Behöver öka" : "Risk att missa";
+      return {
+        id: g.id,
+        title: g.title,
+        type: g.goal_type,
+        target: `${g.target_value} ${g.target_unit}${g.target_reps ? `×${g.target_reps}` : ""}`,
+        current: g.current_label,
+        progress_pct: g.progress_pct,
+        weeks_left: g.weeks_left,
+        pace: paceLabel,
+      };
+    });
+
     const summary = {
       total: workouts.length,
       strength: workouts.filter((w: any) => w.session_type === "styrka").length,
@@ -837,6 +852,7 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
       current_streak: stats?.current_streak ?? 0,
       energy_avg: energyAvg,
       energy_trend: energyTrend,
+      goals: goalStatuses,
     };
 
     const apiKey = process.env.LOVABLE_API_KEY;
