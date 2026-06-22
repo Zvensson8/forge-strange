@@ -6,14 +6,16 @@ import { getExercisesAndTemplates, logStrengthOrCircuit } from "@/lib/workout.fu
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/forge/Stepper";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X, Weight } from "lucide-react";
 import { toast } from "sonner";
-import { todayISO } from "@/lib/forge-utils";
+import { todayISO, isBodyweightCategory } from "@/lib/forge-utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/log/strength")({
   component: () => <LogStrengthOrCircuit kind="styrka" title="Styrkepass" />,
 });
+
+type SetRow = { weight: number | null; reps: number };
 
 export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel"; title: string }) {
   const navigate = useNavigate();
@@ -23,7 +25,7 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
 
   const { data } = useQuery({ queryKey: ["exercises"], queryFn: () => getEx() });
   const [templateId, setTemplateId] = useState<string | "custom">("custom");
-  const [picked, setPicked] = useState<{ exercise_id: string; sets: { weight: number; reps: number }[] }[]>([]);
+  const [picked, setPicked] = useState<{ exercise_id: string; sets: SetRow[] }[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const templates = useMemo(
@@ -41,10 +43,10 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
     setPicked(
       tpl.map((te: any) => {
         const ex = data?.exercises.find((e: any) => e.id === te.exercise_id);
-        const isWeighted = ex && !["Cirkel", "Core"].includes(ex.category);
+        const bw = isBodyweightCategory(ex?.category);
         return {
           exercise_id: te.exercise_id,
-          sets: Array.from({ length: te.target_sets }, () => ({ weight: isWeighted ? 40 : 0, reps: te.target_reps })),
+          sets: Array.from({ length: te.target_sets }, () => ({ weight: bw ? null : 40, reps: te.target_reps })),
         };
       }),
     );
@@ -53,11 +55,13 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
   function addExercise(exId: string) {
     if (picked.find((p) => p.exercise_id === exId)) return;
     const ex = data?.exercises.find((e: any) => e.id === exId);
+    const bw = isBodyweightCategory(ex?.category);
     setPicked([
       ...picked,
       {
         exercise_id: exId,
-        sets: Array.from({ length: ex?.default_sets ?? 3 }, () => ({ weight: 0, reps: ex?.default_reps ?? 10 })),
+        // Default: 1 set
+        sets: [{ weight: bw ? null : (ex?.category === "Underkropp" ? 40 : 20), reps: ex?.default_reps ?? 10 }],
       },
     ]);
   }
@@ -113,13 +117,12 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
   return (
     <div className="space-y-4 pb-32">
       <header className="flex items-center gap-3">
-        <button onClick={() => navigate({ to: "/dashboard" })} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+        <button onClick={() => navigate({ to: "/log" })} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-xl font-bold">{title}</h1>
       </header>
 
-      {/* Template selector */}
       <Card className="border-border bg-card p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mall</p>
         <div className="flex flex-wrap gap-2">
@@ -134,54 +137,87 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
         </div>
       </Card>
 
-      {/* Exercises */}
       {picked.map((p, pi) => {
         const ex: any = exById.get(p.exercise_id);
-        const isWeighted = !["Cirkel", "Core"].includes(ex?.category ?? "");
+        const bw = isBodyweightCategory(ex?.category);
         return (
           <Card key={p.exercise_id} className="border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="font-semibold">{ex?.name}</p>
-                <p className="text-xs text-muted-foreground">{ex?.category}</p>
+                <p className="text-xs text-muted-foreground">
+                  {ex?.category}
+                  {bw ? " · kroppsvikt" : ""}
+                </p>
               </div>
               <button onClick={() => removeExercise(p.exercise_id)} className="text-muted-foreground hover:text-destructive">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-2">
-              {p.sets.map((s, si) => (
-                <div key={si} className="flex items-center gap-2">
-                  <span className="w-6 text-center font-mono text-sm text-muted-foreground">{si + 1}.</span>
-                  {isWeighted && (
-                    <Stepper
-                      value={s.weight}
-                      step={2.5}
-                      onChange={(v) => {
-                        const next = [...picked];
-                        next[pi].sets[si].weight = v;
-                        setPicked(next);
-                      }}
-                      suffix="kg"
-                      className="flex-1"
-                    />
-                  )}
-                  <Stepper
-                    value={s.reps}
-                    onChange={(v) => {
-                      const next = [...picked];
-                      next[pi].sets[si].reps = v;
-                      setPicked(next);
-                    }}
-                    suffix="reps"
-                    className="flex-1"
-                  />
-                </div>
-              ))}
+              {p.sets.map((s, si) => {
+                const hasWeight = s.weight !== null;
+                return (
+                  <div key={si} className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 text-center font-mono text-sm text-muted-foreground">{si + 1}.</span>
+                      <Stepper
+                        value={s.reps}
+                        onChange={(v) => {
+                          const next = [...picked];
+                          next[pi].sets[si].reps = v;
+                          setPicked(next);
+                        }}
+                        suffix="reps"
+                        className="flex-1"
+                      />
+                      {hasWeight ? (
+                        <Stepper
+                          value={s.weight ?? 0}
+                          step={2.5}
+                          onChange={(v) => {
+                            const next = [...picked];
+                            next[pi].sets[si].weight = v;
+                            setPicked(next);
+                          }}
+                          suffix="kg"
+                          className="flex-1"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = [...picked];
+                            next[pi].sets[si].weight = bw ? 5 : 20;
+                            setPicked(next);
+                          }}
+                          className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary"
+                        >
+                          <Weight className="h-3.5 w-3.5" /> + Vikt
+                        </button>
+                      )}
+                      {hasWeight && bw && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = [...picked];
+                            next[pi].sets[si].weight = null;
+                            setPicked(next);
+                          }}
+                          className="text-[10px] uppercase text-muted-foreground hover:text-destructive"
+                          aria-label="Ta bort vikt"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               <button
                 onClick={() => {
                   const next = [...picked];
-                  const last = p.sets[p.sets.length - 1] ?? { weight: 0, reps: 10 };
+                  const last = p.sets[p.sets.length - 1] ?? { weight: bw ? null : 20, reps: 10 };
                   next[pi].sets.push({ ...last });
                   setPicked(next);
                 }}
@@ -194,7 +230,6 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
         );
       })}
 
-      {/* Add exercise */}
       {available.length > 0 && (
         <Card className="border-border bg-card p-3">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lägg till övning</p>
@@ -212,7 +247,6 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
         </Card>
       )}
 
-      {/* Sticky save */}
       <div className="fixed bottom-20 left-0 right-0 z-40 px-4">
         <div className="mx-auto max-w-xl">
           <Button

@@ -16,11 +16,14 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedReviewRouteImport } from './routes/_authenticated/review'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAchievementsRouteImport } from './routes/_authenticated/achievements'
+import { Route as AuthenticatedLogIndexRouteImport } from './routes/_authenticated/log.index'
 import { Route as AuthenticatedHistoryIndexRouteImport } from './routes/_authenticated/history.index'
 import { Route as AuthenticatedGoalsIndexRouteImport } from './routes/_authenticated/goals.index'
+import { Route as AuthenticatedLogWalkingRouteImport } from './routes/_authenticated/log.walking'
 import { Route as AuthenticatedLogStrengthRouteImport } from './routes/_authenticated/log.strength'
 import { Route as AuthenticatedLogRunningRouteImport } from './routes/_authenticated/log.running'
 import { Route as AuthenticatedLogQuickRouteImport } from './routes/_authenticated/log.quick'
+import { Route as AuthenticatedLogCyclingRouteImport } from './routes/_authenticated/log.cycling'
 import { Route as AuthenticatedLogCircuitRouteImport } from './routes/_authenticated/log.circuit'
 import { Route as AuthenticatedHistoryIdRouteImport } from './routes/_authenticated/history.$id'
 import { Route as AuthenticatedGoalsNewRouteImport } from './routes/_authenticated/goals.new'
@@ -61,6 +64,11 @@ const AuthenticatedAchievementsRoute =
     path: '/achievements',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedLogIndexRoute = AuthenticatedLogIndexRouteImport.update({
+  id: '/log/',
+  path: '/log/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHistoryIndexRoute =
   AuthenticatedHistoryIndexRouteImport.update({
     id: '/history/',
@@ -70,6 +78,11 @@ const AuthenticatedHistoryIndexRoute =
 const AuthenticatedGoalsIndexRoute = AuthenticatedGoalsIndexRouteImport.update({
   id: '/goals/',
   path: '/goals/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLogWalkingRoute = AuthenticatedLogWalkingRouteImport.update({
+  id: '/log/walking',
+  path: '/log/walking',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLogStrengthRoute =
@@ -86,6 +99,11 @@ const AuthenticatedLogRunningRoute = AuthenticatedLogRunningRouteImport.update({
 const AuthenticatedLogQuickRoute = AuthenticatedLogQuickRouteImport.update({
   id: '/log/quick',
   path: '/log/quick',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLogCyclingRoute = AuthenticatedLogCyclingRouteImport.update({
+  id: '/log/cycling',
+  path: '/log/cycling',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLogCircuitRoute = AuthenticatedLogCircuitRouteImport.update({
@@ -120,11 +138,14 @@ export interface FileRoutesByFullPath {
   '/goals/new': typeof AuthenticatedGoalsNewRoute
   '/history/$id': typeof AuthenticatedHistoryIdRoute
   '/log/circuit': typeof AuthenticatedLogCircuitRoute
+  '/log/cycling': typeof AuthenticatedLogCyclingRoute
   '/log/quick': typeof AuthenticatedLogQuickRoute
   '/log/running': typeof AuthenticatedLogRunningRoute
   '/log/strength': typeof AuthenticatedLogStrengthRoute
+  '/log/walking': typeof AuthenticatedLogWalkingRoute
   '/goals/': typeof AuthenticatedGoalsIndexRoute
   '/history/': typeof AuthenticatedHistoryIndexRoute
+  '/log/': typeof AuthenticatedLogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -137,11 +158,14 @@ export interface FileRoutesByTo {
   '/goals/new': typeof AuthenticatedGoalsNewRoute
   '/history/$id': typeof AuthenticatedHistoryIdRoute
   '/log/circuit': typeof AuthenticatedLogCircuitRoute
+  '/log/cycling': typeof AuthenticatedLogCyclingRoute
   '/log/quick': typeof AuthenticatedLogQuickRoute
   '/log/running': typeof AuthenticatedLogRunningRoute
   '/log/strength': typeof AuthenticatedLogStrengthRoute
+  '/log/walking': typeof AuthenticatedLogWalkingRoute
   '/goals': typeof AuthenticatedGoalsIndexRoute
   '/history': typeof AuthenticatedHistoryIndexRoute
+  '/log': typeof AuthenticatedLogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -156,11 +180,14 @@ export interface FileRoutesById {
   '/_authenticated/goals/new': typeof AuthenticatedGoalsNewRoute
   '/_authenticated/history/$id': typeof AuthenticatedHistoryIdRoute
   '/_authenticated/log/circuit': typeof AuthenticatedLogCircuitRoute
+  '/_authenticated/log/cycling': typeof AuthenticatedLogCyclingRoute
   '/_authenticated/log/quick': typeof AuthenticatedLogQuickRoute
   '/_authenticated/log/running': typeof AuthenticatedLogRunningRoute
   '/_authenticated/log/strength': typeof AuthenticatedLogStrengthRoute
+  '/_authenticated/log/walking': typeof AuthenticatedLogWalkingRoute
   '/_authenticated/goals/': typeof AuthenticatedGoalsIndexRoute
   '/_authenticated/history/': typeof AuthenticatedHistoryIndexRoute
+  '/_authenticated/log/': typeof AuthenticatedLogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,11 +202,14 @@ export interface FileRouteTypes {
     | '/goals/new'
     | '/history/$id'
     | '/log/circuit'
+    | '/log/cycling'
     | '/log/quick'
     | '/log/running'
     | '/log/strength'
+    | '/log/walking'
     | '/goals/'
     | '/history/'
+    | '/log/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -192,11 +222,14 @@ export interface FileRouteTypes {
     | '/goals/new'
     | '/history/$id'
     | '/log/circuit'
+    | '/log/cycling'
     | '/log/quick'
     | '/log/running'
     | '/log/strength'
+    | '/log/walking'
     | '/goals'
     | '/history'
+    | '/log'
   id:
     | '__root__'
     | '/'
@@ -210,11 +243,14 @@ export interface FileRouteTypes {
     | '/_authenticated/goals/new'
     | '/_authenticated/history/$id'
     | '/_authenticated/log/circuit'
+    | '/_authenticated/log/cycling'
     | '/_authenticated/log/quick'
     | '/_authenticated/log/running'
     | '/_authenticated/log/strength'
+    | '/_authenticated/log/walking'
     | '/_authenticated/goals/'
     | '/_authenticated/history/'
+    | '/_authenticated/log/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -274,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAchievementsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/log/': {
+      id: '/_authenticated/log/'
+      path: '/log'
+      fullPath: '/log/'
+      preLoaderRoute: typeof AuthenticatedLogIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/history/': {
       id: '/_authenticated/history/'
       path: '/history'
@@ -286,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/goals'
       fullPath: '/goals/'
       preLoaderRoute: typeof AuthenticatedGoalsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/log/walking': {
+      id: '/_authenticated/log/walking'
+      path: '/log/walking'
+      fullPath: '/log/walking'
+      preLoaderRoute: typeof AuthenticatedLogWalkingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/log/strength': {
@@ -307,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/log/quick'
       fullPath: '/log/quick'
       preLoaderRoute: typeof AuthenticatedLogQuickRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/log/cycling': {
+      id: '/_authenticated/log/cycling'
+      path: '/log/cycling'
+      fullPath: '/log/cycling'
+      preLoaderRoute: typeof AuthenticatedLogCyclingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/log/circuit': {
@@ -349,11 +406,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGoalsNewRoute: typeof AuthenticatedGoalsNewRoute
   AuthenticatedHistoryIdRoute: typeof AuthenticatedHistoryIdRoute
   AuthenticatedLogCircuitRoute: typeof AuthenticatedLogCircuitRoute
+  AuthenticatedLogCyclingRoute: typeof AuthenticatedLogCyclingRoute
   AuthenticatedLogQuickRoute: typeof AuthenticatedLogQuickRoute
   AuthenticatedLogRunningRoute: typeof AuthenticatedLogRunningRoute
   AuthenticatedLogStrengthRoute: typeof AuthenticatedLogStrengthRoute
+  AuthenticatedLogWalkingRoute: typeof AuthenticatedLogWalkingRoute
   AuthenticatedGoalsIndexRoute: typeof AuthenticatedGoalsIndexRoute
   AuthenticatedHistoryIndexRoute: typeof AuthenticatedHistoryIndexRoute
+  AuthenticatedLogIndexRoute: typeof AuthenticatedLogIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -365,11 +425,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGoalsNewRoute: AuthenticatedGoalsNewRoute,
   AuthenticatedHistoryIdRoute: AuthenticatedHistoryIdRoute,
   AuthenticatedLogCircuitRoute: AuthenticatedLogCircuitRoute,
+  AuthenticatedLogCyclingRoute: AuthenticatedLogCyclingRoute,
   AuthenticatedLogQuickRoute: AuthenticatedLogQuickRoute,
   AuthenticatedLogRunningRoute: AuthenticatedLogRunningRoute,
   AuthenticatedLogStrengthRoute: AuthenticatedLogStrengthRoute,
+  AuthenticatedLogWalkingRoute: AuthenticatedLogWalkingRoute,
   AuthenticatedGoalsIndexRoute: AuthenticatedGoalsIndexRoute,
   AuthenticatedHistoryIndexRoute: AuthenticatedHistoryIndexRoute,
+  AuthenticatedLogIndexRoute: AuthenticatedLogIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
