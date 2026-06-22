@@ -3,16 +3,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboard, seedDemoIfEmpty } from "@/lib/workout.functions";
+import { listGoalsWithProgress } from "@/lib/goals.functions";
+import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
 import { StreakBadge } from "@/components/forge/StreakBadge";
 import { LevelBar } from "@/components/forge/LevelBar";
 import { Heatmap } from "@/components/forge/Heatmap";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, Trophy, Sparkles, TrendingUp, Zap, ChevronRight } from "lucide-react";
+import { Dumbbell, Timer, Footprints, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { formatDateSv, formatPace } from "@/lib/forge-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
