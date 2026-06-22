@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboard, seedDemoIfEmpty } from "@/lib/workout.functions";
@@ -7,20 +7,24 @@ import { StreakBadge } from "@/components/forge/StreakBadge";
 import { LevelBar } from "@/components/forge/LevelBar";
 import { Heatmap } from "@/components/forge/Heatmap";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, Trophy, Sparkles, TrendingUp } from "lucide-react";
+import { Dumbbell, Timer, Footprints, Trophy, Sparkles, TrendingUp, Zap, ChevronRight } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { formatDateSv, formatPace } from "@/lib/forge-utils";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
+type Filter = "alla" | "styrka" | "cirkel" | "löpning";
+
 function Dashboard() {
   const navigate = useNavigate();
   const getDash = useServerFn(getDashboard);
   const seedFn = useServerFn(seedDemoIfEmpty);
+  const [filter, setFilter] = useState<Filter>("alla");
 
   const seedMut = useMutation({
     mutationFn: () => seedFn(),
@@ -45,13 +49,17 @@ function Dashboard() {
     navigate({ to: "/auth" });
   }
 
+  const filteredHeatmap = useMemo(() => {
+    const h = dash.data?.heatmap ?? [];
+    if (filter === "alla") return h;
+    return h.filter((r: any) => r.session_type === filter);
+  }, [dash.data, filter]);
+
   if (dash.isLoading || !dash.data) {
     return <div className="py-20 text-center text-muted-foreground">Värmer upp smedjan…</div>;
   }
 
-  const { stats, profile, heatmap, recent_achievements, quest, strength_series, running_series } = dash.data;
-
-  const projected = Math.round(((stats?.current_streak ?? 0) * 0.7 + (stats?.total_sessions ?? 0) * 0.3) * 1.5);
+  const { stats, profile, recent_achievements, quest, strength_series, running_series, last7 } = dash.data as any;
 
   return (
     <div className="space-y-5">
@@ -98,13 +106,77 @@ function Dashboard() {
         <LogButton to="/log/running" icon={Footprints} label="Löpning" />
       </div>
 
-      {/* Heatmap */}
-      <Card className="border-border bg-card p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Aktivitet · 6 veckor</h2>
+      {/* Quick minipass */}
+      <Link
+        to="/log/quick"
+        className="flex items-center justify-between rounded-xl border border-dashed border-primary/50 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+            <Zap className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold">Logga minipass · 15 min</p>
+            <p className="text-xs text-muted-foreground">Räcker för full streak på låg-motivations-dagar</p>
+          </div>
         </div>
-        <Heatmap data={heatmap as any} weeks={6} />
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      </Link>
+
+      {/* Last 7 days */}
+      <Card className="border-border bg-card p-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <Mini7 label="Totalt" value={last7?.total ?? 0} accent />
+          <Mini7 label="Styrka" value={last7?.styrka ?? 0} />
+          <Mini7 label="Cirkel" value={last7?.cirkel ?? 0} />
+          <Mini7 label="Löpning" value={last7?.löpning ?? 0} />
+        </div>
       </Card>
+
+      {/* Heatmap with filters */}
+      <Card className="border-border bg-card p-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Aktivitet · 6 v</h2>
+        </div>
+        <div className="mb-3 flex gap-1.5 overflow-x-auto">
+          {(["alla", "styrka", "cirkel", "löpning"] as Filter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
+                filter === f
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <Heatmap data={filteredHeatmap as any} weeks={6} />
+      </Card>
+
+      {/* Veckoreview – stor och framträdande */}
+      <Link to="/review" className="block">
+        <Card className="relative overflow-hidden border-primary/40 bg-card p-5 transition-all hover:border-primary hover:ember-glow">
+          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl forge-gradient text-primary-foreground ember-glow">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-primary">Veckoreview</p>
+                <p className="text-base font-bold">Smedjans 3 insikter för dig</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Personlig AI-coach · uppdateras varje gång</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-primary" />
+          </div>
+        </Card>
+      </Link>
 
       {/* Weekly quest */}
       {quest && (
@@ -135,23 +207,6 @@ function Dashboard() {
         />
       </div>
 
-      {/* Compounding */}
-      <Card className="border-border bg-card p-5">
-        <div className="flex items-start gap-3">
-          <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div>
-            <p className="text-sm">
-              Din consistency ger en projicerad utveckling på{" "}
-              <span className="font-bold text-primary">+{projected}%</span> det här kvartalet. Små pass, varje vecka, blir
-              till tung skillnad.
-            </p>
-            <Link to="/review" className="mt-2 inline-block text-xs font-semibold uppercase tracking-wider text-primary">
-              Visa veckoreview →
-            </Link>
-          </div>
-        </div>
-      </Card>
-
       {/* Recent achievements */}
       {recent_achievements.length > 0 && (
         <Card className="border-border bg-card p-5">
@@ -177,6 +232,15 @@ function Dashboard() {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+function Mini7({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div className={cn("rounded-lg p-2", accent ? "bg-primary/10" : "bg-muted/40")}>
+      <p className={cn("font-mono text-2xl font-bold", accent ? "text-primary" : "text-foreground")}>{value}</p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
     </div>
   );
 }
