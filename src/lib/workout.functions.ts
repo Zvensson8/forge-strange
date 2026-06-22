@@ -447,6 +447,16 @@ export const getDashboard = createServerFn({ method: "GET" })
       pace: Number(r.avg_pace_seconds),
     }));
 
+    // Senaste 7 dagar – sammanfattning per typ
+    const sevenAgo = isoDate(new Date(Date.now() - 7 * 86400000));
+    const last7Rows = (heatmapRows ?? []).filter((r: any) => r.date >= sevenAgo);
+    const last7 = {
+      total: last7Rows.length,
+      styrka: last7Rows.filter((r: any) => r.session_type === "styrka").length,
+      cirkel: last7Rows.filter((r: any) => r.session_type === "cirkel").length,
+      löpning: last7Rows.filter((r: any) => r.session_type === "löpning").length,
+    };
+
     return {
       stats: stats ?? {
         total_sessions: 0,
@@ -462,8 +472,10 @@ export const getDashboard = createServerFn({ method: "GET" })
       quest,
       strength_series: strengthSeries,
       running_series: runningSeries,
+      last7,
     };
   });
+
 
 export const getHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
