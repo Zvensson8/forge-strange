@@ -673,6 +673,72 @@ export const seedDemoIfEmpty = createServerFn({ method: "POST" })
     return { seeded: true };
   });
 
+// ---------- Quick minimum session (low-motivation days) ----------
+
+const LogQuickInput = z.object({
+  date: z.string().regex(ISO_DATE_RE),
+  session_type: z.enum(["styrka", "cirkel", "löpning"]),
+  duration_minutes: z.number().int().min(5).max(60).default(15),
+  energy_level: z.number().int().min(1).max(10).optional(),
+  notes: z.string().optional(),
+});
+
+export const logQuickSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => LogQuickInput.parse(d))
+  .handler(async ({ data, context }): Promise<LogResult> => {
+    const { supabase, userId } = context;
+
+    const { data: workout, error: wErr } = await supabase
+      .from("workouts")
+      .insert({
+        user_id: userId,
+        date: data.date,
+        session_type: data.session_type,
+        duration_minutes: data.duration_minutes,
+        energy_level: data.energy_level ?? null,
+        notes: data.notes ?? "Minipass",
+        had_pr: false,
+        xp_awarded: 0,
+      })
+      .select()
+      .single();
+    if (wErr || !workout) throw new Error(wErr?.message ?? "Kunde inte spara minipass");
+
+    if (data.session_type === "löpning") {
+      const distance = Math.max(1, Math.round((data.duration_minutes / 6) * 10) / 10);
+      const avgPace = Math.round((data.duration_minutes * 60) / distance);
+      await supabase.from("running_sessions").insert({
+        workout_id: workout.id,
+        distance_km: distance,
+        duration_minutes: data.duration_minutes,
+        avg_pace_seconds: avgPace,
+        effort_level: 4,
+      });
+    }
+
+    // Minipass: halverad XP men full streak
+    const stats = await updateStatsAndAchievements(supabase, userId, {
+      session_type: data.session_type,
+      date: data.date,
+      had_pr: false,
+      xp_base: 25,
+    });
+
+    await supabase.from("workouts").update({ xp_awarded: stats.xp_gained }).eq("id", workout.id);
+
+    return {
+      workout_id: workout.id,
+      xp_gained: stats.xp_gained,
+      total_xp: stats.total_xp,
+      new_level: stats.new_level,
+      leveled_up: stats.leveled_up,
+      streak: stats.streak,
+      prs: [],
+      unlocked_achievements: stats.unlocked,
+    };
+  });
+
 // ---------- AI weekly review ----------
 
 export const getWeeklyReview = createServerFn({ method: "POST" })
@@ -684,51 +750,137 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     wkEnd.setDate(wkEnd.getDate() + 7);
     const wkEndISO = isoDate(wkEnd);
 
-    const { data: workouts } = await supabase
-      .from("workouts")
-      .select("*, running_sessions(*), sets(weight, reps, exercises(name))")
-      .eq("user_id", userId)
-      .gte("date", wkStart)
-      .lt("date", wkEndISO)
-      .order("date");
+    // 14 dagar tillbaka för AI-kontext
+    const ctx14Start = isoDate(new Date(Date.now() - 14 * 86400000));
+
+    const [{ data: weekRows }, { data: ctxRows }, { data: stats }] = await Promise.all([
+      supabase
+        .from("workouts")
+        .select("*, running_sessions(*), sets(weight, reps, exercises(name, category))")
+        .eq("user_id", userId)
+        .gte("date", wkStart)
+        .lt("date", wkEndISO)
+        .order("date"),
+      supabase
+        .from("workouts")
+        .select("date, session_type, duration_minutes, energy_level, had_pr, running_sessions(distance_km, avg_pace_seconds)")
+        .eq("user_id", userId)
+        .gte("date", ctx14Start)
+        .order("date"),
+      supabase.from("user_stats").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
+
+    const workouts = weekRows ?? [];
+
+    // Lyftvolym (sum of weight*reps) för veckan
+    let totalVolume = 0;
+    for (const w of workouts) {
+      for (const s of (w as any).sets ?? []) {
+        totalVolume += Number(s.weight ?? 0) * Number(s.reps ?? 0);
+      }
+    }
+
+    const totalDistance = workouts.reduce(
+      (s: number, w: any) => s + (w.running_sessions?.[0]?.distance_km ? Number(w.running_sessions[0].distance_km) : 0),
+      0,
+    );
+
+    const distinctDays = new Set(workouts.map((w: any) => w.date));
+    const prCount = workouts.filter((w: any) => w.had_pr).length;
+    const prList = workouts
+      .filter((w: any) => w.had_pr)
+      .map((w: any) => ({
+        date: w.date,
+        type: w.session_type,
+        detail:
+          w.session_type === "löpning"
+            ? `${w.running_sessions?.[0]?.distance_km ?? "?"} km`
+            : ((w.sets ?? [])
+                .map((s: any) => `${s.exercises?.name ?? ""} ${s.weight ?? 0}×${s.reps ?? 0}`)
+                .slice(0, 2)
+                .join(", ")),
+      }));
+
+    const energyVals = workouts
+      .map((w: any) => w.energy_level)
+      .filter((e: any) => typeof e === "number") as number[];
+    const energyAvg = energyVals.length ? energyVals.reduce((a, b) => a + b, 0) / energyVals.length : null;
+    const energyTrend = energyVals.length >= 2 ? energyVals[energyVals.length - 1] - energyVals[0] : 0;
 
     const summary = {
-      total: workouts?.length ?? 0,
-      strength: workouts?.filter((w: any) => w.session_type === "styrka").length ?? 0,
-      circuit: workouts?.filter((w: any) => w.session_type === "cirkel").length ?? 0,
-      running: workouts?.filter((w: any) => w.session_type === "löpning").length ?? 0,
-      total_distance: (workouts ?? []).reduce(
-        (s: number, w: any) => s + (w.running_sessions?.[0]?.distance_km ? Number(w.running_sessions[0].distance_km) : 0),
-        0,
-      ),
+      total: workouts.length,
+      strength: workouts.filter((w: any) => w.session_type === "styrka").length,
+      circuit: workouts.filter((w: any) => w.session_type === "cirkel").length,
+      running: workouts.filter((w: any) => w.session_type === "löpning").length,
+      total_distance: totalDistance,
+      total_volume_kg: Math.round(totalVolume),
+      days_trained: distinctDays.size,
+      pr_count: prCount,
+      prs: prList,
+      current_streak: stats?.current_streak ?? 0,
+      energy_avg: energyAvg,
+      energy_trend: energyTrend,
     };
 
     const apiKey = process.env.LOVABLE_API_KEY;
-    let insights = "Sammanfattning:\n- " + summary.total + " pass den här veckan.";
+    let insights = "";
     if (apiKey) {
       try {
         const { createLovableAiGatewayProvider } = await import("@/lib/ai-gateway.server");
         const { generateText } = await import("ai");
         const gateway = createLovableAiGatewayProvider(apiKey);
-        const compactWorkouts = (workouts ?? []).map((w: any) => ({
+
+        const dayName = (d: string) =>
+          new Date(d).toLocaleDateString("sv-SE", { weekday: "short" });
+        const compact = (ctxRows ?? []).map((w: any) => ({
           date: w.date,
-          type: w.session_type,
-          distance_km: w.running_sessions?.[0]?.distance_km ?? null,
-          duration: w.duration_minutes,
-          sets_summary: (w.sets ?? []).slice(0, 6).map((s: any) => `${s.exercises?.name}: ${s.weight}kg x ${s.reps}`),
+          dag: dayName(w.date),
+          typ: w.session_type,
+          min: w.duration_minutes,
+          energi: w.energy_level,
+          pr: w.had_pr,
+          km: w.running_sessions?.[0]?.distance_km ?? null,
+          pace_s: w.running_sessions?.[0]?.avg_pace_seconds ?? null,
         }));
+
         const { text } = await generateText({
           model: gateway("google/gemini-3-flash-preview"),
           prompt:
-            "Du är en kort, direkt och uppmuntrande svensk träningscoach. Användaren har loggat följande pass den här veckan: " +
-            JSON.stringify(compactWorkouts) +
-            "\n\nGe en kort sammanfattning på svenska (max 3 meningar) och därefter 2–3 konkreta, korta förslag som punktlista. Fokusera på mönster i missade dagar, progression och balans mellan styrka, cirkel och löpning. Ingen disclaimer.",
+            "Du är en rak, klok svensk träningscoach för en småbarnsförälder med begränsad tid. " +
+            "Användaren tränar styrka, cirkel och löpning hemma. Fokus är consistency, inte perfektion.\n\n" +
+            "Data senaste 14 dagar (JSON):\n" +
+            JSON.stringify(compact) +
+            "\n\nDenna veckas sammanfattning:\n" +
+            JSON.stringify({
+              pass: summary.total,
+              styrka: summary.strength,
+              cirkel: summary.circuit,
+              löpning: summary.running,
+              dagar_med_träning: summary.days_trained,
+              streak: summary.current_streak,
+              total_volym_kg: summary.total_volume_kg,
+              total_km: Math.round(summary.total_distance * 10) / 10,
+              pr_antal: summary.pr_count,
+              snitt_energi: summary.energy_avg,
+            }) +
+            "\n\nGe EXAKT 3 punkter på svenska, varje punkt 1–2 meningar. " +
+            "Var konkret och personlig: hänvisa till specifika veckodagar, mönster, kombinationer av passtyper eller energinivåer. " +
+            "Undvik generiska råd som 'bra jobbat', 'fortsätt så' eller 'kom ihåg att vila'. " +
+            "Föreslå EN konkret handling per punkt (t.ex. 'flytta ett kort styrkepass till lördag', 'kombinera löpning med cirkel på onsdag'). " +
+            "Format: bara tre punkter med '- ' framför. Ingen rubrik, ingen disclaimer.",
         });
-        insights = text;
+        insights = text.trim();
       } catch (e) {
         console.error(e);
       }
     }
 
+    if (!insights) {
+      insights = summary.total === 0
+        ? "- Veckan är fortfarande öppen – ett 15-minuters minipass idag håller din streak vid liv.\n- Lägg ett kort cirkelpass på lunchen för att bryta stillasittande.\n- Plocka en löprunda på 20 min i kväll om vädret tillåter."
+        : `- Du har ${summary.total} pass och ${summary.days_trained} träningsdagar – bygg vidare med ett kort pass till innan veckan tar slut.\n- Balansen ${summary.strength}/${summary.circuit}/${summary.running} (styrka/cirkel/löpning) ser ${summary.strength === 0 ? "tunn ut på styrka – lägg ett kort styrkepass" : "stabil ut"}.\n- Streak: ${summary.current_streak} dagar. Skydda den med ett minipass på lågmotivationsdagar.`;
+    }
+
     return { summary, insights };
   });
+
