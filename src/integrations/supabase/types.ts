@@ -14,7 +14,399 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      achievements: {
+        Row: {
+          code: string
+          criteria_type: string
+          criteria_value: number
+          description: string
+          icon: string
+          id: string
+          name: string
+        }
+        Insert: {
+          code: string
+          criteria_type: string
+          criteria_value: number
+          description: string
+          icon: string
+          id?: string
+          name: string
+        }
+        Update: {
+          code?: string
+          criteria_type?: string
+          criteria_value?: number
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      exercises: {
+        Row: {
+          category: string
+          created_at: string
+          default_reps: number
+          default_sets: number
+          id: string
+          is_global: boolean
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          default_reps?: number
+          default_sets?: number
+          id?: string
+          is_global?: boolean
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          default_reps?: number
+          default_sets?: number
+          id?: string
+          is_global?: boolean
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          units_distance: string
+          units_weight: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          units_distance?: string
+          units_weight?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          units_distance?: string
+          units_weight?: string
+        }
+        Relationships: []
+      }
+      running_sessions: {
+        Row: {
+          avg_pace_seconds: number
+          distance_km: number
+          duration_minutes: number
+          effort_level: number | null
+          id: string
+          route_notes: string | null
+          workout_id: string
+        }
+        Insert: {
+          avg_pace_seconds: number
+          distance_km: number
+          duration_minutes: number
+          effort_level?: number | null
+          id?: string
+          route_notes?: string | null
+          workout_id: string
+        }
+        Update: {
+          avg_pace_seconds?: number
+          distance_km?: number
+          duration_minutes?: number
+          effort_level?: number | null
+          id?: string
+          route_notes?: string | null
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "running_sessions_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: true
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sets: {
+        Row: {
+          exercise_id: string
+          id: string
+          notes: string | null
+          reps: number | null
+          rpe: number | null
+          set_index: number
+          weight: number | null
+          workout_id: string
+        }
+        Insert: {
+          exercise_id: string
+          id?: string
+          notes?: string | null
+          reps?: number | null
+          rpe?: number | null
+          set_index?: number
+          weight?: number | null
+          workout_id: string
+        }
+        Update: {
+          exercise_id?: string
+          id?: string
+          notes?: string | null
+          reps?: number | null
+          rpe?: number | null
+          set_index?: number
+          weight?: number | null
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sets_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sets_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_exercises: {
+        Row: {
+          exercise_id: string
+          id: string
+          order_index: number
+          target_reps: number
+          target_sets: number
+          template_id: string
+        }
+        Insert: {
+          exercise_id: string
+          id?: string
+          order_index?: number
+          target_reps?: number
+          target_sets?: number
+          template_id: string
+        }
+        Update: {
+          exercise_id?: string
+          id?: string
+          order_index?: number
+          target_reps?: number
+          target_sets?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_exercises_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          progress: number
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          progress?: number
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          progress?: number
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_stats: {
+        Row: {
+          current_level: number
+          current_streak: number
+          last_workout_date: string | null
+          longest_streak: number
+          total_sessions: number
+          total_xp: number
+          user_id: string
+        }
+        Insert: {
+          current_level?: number
+          current_streak?: number
+          last_workout_date?: string | null
+          longest_streak?: number
+          total_sessions?: number
+          total_xp?: number
+          user_id: string
+        }
+        Update: {
+          current_level?: number
+          current_streak?: number
+          last_workout_date?: string | null
+          longest_streak?: number
+          total_sessions?: number
+          total_xp?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_quests: {
+        Row: {
+          completed: boolean
+          description: string
+          id: string
+          progress: number
+          target: number
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          completed?: boolean
+          description: string
+          id?: string
+          progress?: number
+          target: number
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          completed?: boolean
+          description?: string
+          id?: string
+          progress?: number
+          target?: number
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      workout_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_global: boolean
+          name: string
+          session_type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_global?: boolean
+          name: string
+          session_type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_global?: boolean
+          name?: string
+          session_type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      workouts: {
+        Row: {
+          cold_exposure_done: boolean
+          created_at: string
+          date: string
+          duration_minutes: number | null
+          energy_level: number | null
+          had_pr: boolean
+          id: string
+          notes: string | null
+          session_type: string
+          sunlight_done: boolean
+          template_id: string | null
+          user_id: string
+          xp_awarded: number
+        }
+        Insert: {
+          cold_exposure_done?: boolean
+          created_at?: string
+          date?: string
+          duration_minutes?: number | null
+          energy_level?: number | null
+          had_pr?: boolean
+          id?: string
+          notes?: string | null
+          session_type: string
+          sunlight_done?: boolean
+          template_id?: string | null
+          user_id: string
+          xp_awarded?: number
+        }
+        Update: {
+          cold_exposure_done?: boolean
+          created_at?: string
+          date?: string
+          duration_minutes?: number | null
+          energy_level?: number | null
+          had_pr?: boolean
+          id?: string
+          notes?: string | null
+          session_type?: string
+          sunlight_done?: boolean
+          template_id?: string | null
+          user_id?: string
+          xp_awarded?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workouts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
