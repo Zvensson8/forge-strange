@@ -375,8 +375,7 @@ export const logRunning = createServerFn({ method: "POST" })
     };
   });
 
-// Backwards-compat alias
-export const logRunning = logDistance;
+
 
 
 // ---------- Reads ----------
