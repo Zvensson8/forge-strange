@@ -229,12 +229,19 @@ function Dashboard() {
 
       {/* Last 7 days */}
       <Card className="border-border bg-card p-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
-        <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
+          <Link to="/history" className="flex items-center gap-1 text-xs font-semibold text-primary">
+            <HistoryIcon className="h-3 w-3" /> Historik
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
           <Mini7 label="Totalt" value={last7?.total ?? 0} accent />
           <Mini7 label="Styrka" value={last7?.styrka ?? 0} />
           <Mini7 label="Cirkel" value={last7?.cirkel ?? 0} />
           <Mini7 label="Löpning" value={last7?.löpning ?? 0} />
+          <Mini7 label="Cykling" value={last7?.cykling ?? 0} />
+          <Mini7 label="Promenad" value={last7?.promenad ?? 0} />
         </div>
       </Card>
 
@@ -245,12 +252,12 @@ function Dashboard() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Aktivitet · 6 v</h2>
         </div>
         <div className="mb-3 flex gap-1.5 overflow-x-auto">
-          {(["alla", "styrka", "cirkel", "löpning"] as Filter[]).map((f) => (
+          {HEATMAP_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
                 filter === f
                   ? "border-primary bg-primary/15 text-primary"
                   : "border-border bg-background text-muted-foreground hover:text-foreground",
