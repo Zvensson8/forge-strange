@@ -151,6 +151,62 @@ function Dashboard() {
         <ChevronRight className="h-5 w-5 text-muted-foreground" />
       </Link>
 
+      {/* Goals section */}
+      {urgentEvent && (
+        <Card className="border-amber-500/50 bg-amber-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <Bell className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-amber-200">
+                {urgentEvent.weeks_left} {urgentEvent.weeks_left === 1 ? "vecka" : "veckor"} kvar till{" "}
+                {urgentEvent.title}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-300/80">
+                Du ligger på {urgentEvent.progress_pct}% – {urgentEvent.pace === "danger" ? "långt efter" : urgentEvent.pace === "behind" ? "efter" : "i takt med"}{" "}
+                planen. Klicka för detaljer.
+              </p>
+              <Link
+                to="/goals/$id"
+                params={{ id: urgentEvent.id }}
+                className="mt-2 inline-block text-xs font-semibold text-amber-300 underline-offset-2 hover:underline"
+              >
+                Öppna mål →
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <Target className="h-4 w-4" /> Aktiva mål
+          </h2>
+          <Link to="/goals" className="text-xs font-semibold text-primary">
+            Alla →
+          </Link>
+        </div>
+        {activeGoals.length === 0 ? (
+          <Link
+            to="/goals/new"
+            className="flex items-center justify-between rounded-xl border border-dashed border-border bg-card/40 p-4 transition-colors hover:border-primary/50"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Plus className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Sätt ditt första mål</p>
+                <p className="text-xs text-muted-foreground">Smedjan följer takten åt dig</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Link>
+        ) : (
+          activeGoals.slice(0, 2).map((g) => <GoalCard key={g.id} goal={g} compact />)
+        )}
+      </section>
+
       {/* Last 7 days */}
       <Card className="border-border bg-card p-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
@@ -161,6 +217,7 @@ function Dashboard() {
           <Mini7 label="Löpning" value={last7?.löpning ?? 0} />
         </div>
       </Card>
+
 
       {/* Heatmap with filters */}
       <Card className="border-border bg-card p-5">
