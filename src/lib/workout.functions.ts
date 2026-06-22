@@ -936,3 +936,97 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     return { summary, insights };
   });
 
+// ---------- Edit / Delete ----------
+
+async function recomputeUserStats(supabase: any, userId: string) {
+  const { data: rows } = await supabase
+    .from("workouts")
+    .select("date, xp_awarded")
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+  const list = (rows ?? []) as { date: string; xp_awarded: number }[];
+
+  const totalSessions = list.length;
+  const totalXp = list.reduce((s, r) => s + Number(r.xp_awarded ?? 0), 0);
+  const newLevel = levelFromXp(totalXp);
+
+  // Distinct dates ordered
+  const dates = Array.from(new Set(list.map((r) => r.date))).sort();
+  let longest = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of dates) {
+    if (prev) {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + 1);
+      run = isoDate(next) === d ? run + 1 : 1;
+    } else {
+      run = 1;
+    }
+    longest = Math.max(longest, run);
+    prev = d;
+  }
+  const last = dates[dates.length - 1] ?? null;
+  let current = 0;
+  if (last) {
+    const today = isoDate(new Date());
+    const yest = new Date();
+    yest.setDate(yest.getDate() - 1);
+    if (last === today || last === isoDate(yest)) {
+      // walk backwards from last counting consecutive
+      current = 1;
+      for (let i = dates.length - 2; i >= 0; i--) {
+        const prevDate = new Date(dates[i + 1]);
+        prevDate.setDate(prevDate.getDate() - 1);
+        if (isoDate(prevDate) === dates[i]) current++;
+        else break;
+      }
+    }
+  }
+
+  await supabase
+    .from("user_stats")
+    .upsert({
+      user_id: userId,
+      total_sessions: totalSessions,
+      current_streak: current,
+      longest_streak: longest,
+      total_xp: totalXp,
+      current_level: newLevel,
+      last_workout_date: last,
+    });
+}
+
+export const deleteWorkout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase.from("workouts").delete().eq("id", data.id).eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    await recomputeUserStats(supabase, userId);
+    return { ok: true };
+  });
+
+const UpdateWorkoutInput = z.object({
+  id: z.string().uuid(),
+  notes: z.string().nullable().optional(),
+  duration_minutes: z.number().int().nullable().optional(),
+  energy_level: z.number().int().min(1).max(10).nullable().optional(),
+});
+
+export const updateWorkout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UpdateWorkoutInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { id, ...patch } = data;
+    const { error } = await supabase
+      .from("workouts")
+      .update(patch)
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
