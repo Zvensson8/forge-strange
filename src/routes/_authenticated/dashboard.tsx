@@ -9,7 +9,7 @@ import { StreakBadge } from "@/components/forge/StreakBadge";
 import { LevelBar } from "@/components/forge/LevelBar";
 import { Heatmap } from "@/components/forge/Heatmap";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell } from "lucide-react";
+import { Dumbbell, Timer, Footprints, Bike, Trees, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell, History as HistoryIcon } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { formatDateSv, formatPace } from "@/lib/forge-utils";
@@ -21,7 +21,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-type Filter = "alla" | "styrka" | "cirkel" | "löpning";
+type Filter = "alla" | "styrka" | "cirkel" | "löpning" | "cykling" | "promenad";
+const HEATMAP_FILTERS: Filter[] = ["alla", "styrka", "cirkel", "löpning", "cykling", "promenad"];
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -127,11 +128,30 @@ function Dashboard() {
         </div>
       </Card>
 
-      {/* Quick log */}
-      <div className="grid grid-cols-3 gap-2">
-        <LogButton to="/log/strength" icon={Dumbbell} label="Styrka" />
-        <LogButton to="/log/circuit" icon={Timer} label="Cirkel" />
-        <LogButton to="/log/running" icon={Footprints} label="Löpning" />
+      {/* Primary log button → chooser */}
+      <Link
+        to="/log"
+        className="flex items-center justify-between rounded-xl border border-primary/50 bg-card p-4 transition-all hover:ember-glow"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full forge-gradient text-primary-foreground ember-glow">
+            <Plus className="h-6 w-6" strokeWidth={2.5} />
+          </span>
+          <div>
+            <p className="text-base font-bold">Logga pass</p>
+            <p className="text-xs text-muted-foreground">Välj styrka, cirkel, löpning, cykel eller promenad</p>
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      </Link>
+
+      {/* Quick shortcuts */}
+      <div className="grid grid-cols-5 gap-2">
+        <LogShortcut to="/log/strength" icon={Dumbbell} label="Styrka" />
+        <LogShortcut to="/log/circuit" icon={Timer} label="Cirkel" />
+        <LogShortcut to="/log/running" icon={Footprints} label="Löp" />
+        <LogShortcut to="/log/cycling" icon={Bike} label="Cykel" />
+        <LogShortcut to="/log/walking" icon={Trees} label="Gå" />
       </div>
 
       {/* Quick minipass */}
@@ -209,12 +229,19 @@ function Dashboard() {
 
       {/* Last 7 days */}
       <Card className="border-border bg-card p-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
-        <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
+          <Link to="/history" className="flex items-center gap-1 text-xs font-semibold text-primary">
+            <HistoryIcon className="h-3 w-3" /> Historik
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
           <Mini7 label="Totalt" value={last7?.total ?? 0} accent />
           <Mini7 label="Styrka" value={last7?.styrka ?? 0} />
           <Mini7 label="Cirkel" value={last7?.cirkel ?? 0} />
           <Mini7 label="Löpning" value={last7?.löpning ?? 0} />
+          <Mini7 label="Cykling" value={last7?.cykling ?? 0} />
+          <Mini7 label="Promenad" value={last7?.promenad ?? 0} />
         </div>
       </Card>
 
@@ -225,12 +252,12 @@ function Dashboard() {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Aktivitet · 6 v</h2>
         </div>
         <div className="mb-3 flex gap-1.5 overflow-x-auto">
-          {(["alla", "styrka", "cirkel", "löpning"] as Filter[]).map((f) => (
+          {HEATMAP_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
                 filter === f
                   ? "border-primary bg-primary/15 text-primary"
                   : "border-border bg-background text-muted-foreground hover:text-foreground",
@@ -330,16 +357,16 @@ function Mini7({ label, value, accent }: { label: string; value: number; accent?
   );
 }
 
-function LogButton({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
+function LogShortcut({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
   return (
     <Link
       to={to as any}
-      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/50 hover:ember-glow"
+      className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-3 transition-all hover:border-primary/50 hover:ember-glow"
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-full forge-gradient text-primary-foreground">
-        <Icon className="h-6 w-6" strokeWidth={2.5} />
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg forge-gradient text-primary-foreground">
+        <Icon className="h-4 w-4" strokeWidth={2.5} />
       </span>
-      <span className="text-xs font-semibold">{label}</span>
+      <span className="text-[10px] font-semibold">{label}</span>
     </Link>
   );
 }

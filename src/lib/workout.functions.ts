@@ -38,7 +38,7 @@ async function updateStatsAndAchievements(
   supabase: any,
   userId: string,
   payload: {
-    session_type: "styrka" | "cirkel" | "löpning";
+    session_type: string;
     date: string;
     had_pr: boolean;
     xp_base: number;
@@ -296,8 +296,9 @@ export const logStrengthOrCircuit = createServerFn({ method: "POST" })
     };
   });
 
-const LogRunningInput = z.object({
+const LogDistanceInput = z.object({
   date: z.string().regex(ISO_DATE_RE),
+  session_type: z.enum(["löpning", "cykling", "promenad"]).default("löpning"),
   distance_km: z.number().positive(),
   duration_minutes: z.number().positive(),
   effort_level: z.number().int().min(1).max(10).optional(),
@@ -306,15 +307,16 @@ const LogRunningInput = z.object({
 
 export const logRunning = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => LogRunningInput.parse(d))
+  .inputValidator((d: unknown) => LogDistanceInput.parse(d))
   .handler(async ({ data, context }): Promise<LogResult> => {
     const { supabase, userId } = context;
 
-    // PR: compare distance, duration, pace vs history
+    // PR: jämför mot historik inom samma session_type
     const { data: prevRuns } = await supabase
       .from("running_sessions")
-      .select("distance_km, duration_minutes, avg_pace_seconds, workouts!inner(user_id)")
-      .eq("workouts.user_id", userId);
+      .select("distance_km, duration_minutes, avg_pace_seconds, workouts!inner(user_id, session_type)")
+      .eq("workouts.user_id", userId)
+      .eq("workouts.session_type", data.session_type);
     const prevMaxDist = (prevRuns ?? []).reduce((m: number, r: any) => Math.max(m, Number(r.distance_km)), 0);
     const prevBestPace = (prevRuns ?? []).reduce(
       (m: number, r: any) => (m === 0 ? Number(r.avg_pace_seconds) : Math.min(m, Number(r.avg_pace_seconds))),
@@ -331,14 +333,15 @@ export const logRunning = createServerFn({ method: "POST" })
       .insert({
         user_id: userId,
         date: data.date,
-        session_type: "löpning",
+        session_type: data.session_type,
         duration_minutes: Math.round(data.duration_minutes),
         had_pr: prs.length > 0,
         xp_awarded: 0,
+        notes: data.route_notes ?? null,
       })
       .select()
       .single();
-    if (wErr || !workout) throw new Error(wErr?.message ?? "Kunde inte spara löprunda");
+    if (wErr || !workout) throw new Error(wErr?.message ?? "Kunde inte spara pass");
 
     await supabase.from("running_sessions").insert({
       workout_id: workout.id,
@@ -349,11 +352,12 @@ export const logRunning = createServerFn({ method: "POST" })
       route_notes: data.route_notes ?? null,
     });
 
+    const xpBase = data.session_type === "promenad" ? 35 : 50;
     const stats = await updateStatsAndAchievements(supabase, userId, {
-      session_type: "löpning",
+      session_type: data.session_type,
       date: data.date,
       had_pr: prs.length > 0,
-      xp_base: 50,
+      xp_base: xpBase,
       distance_km: data.distance_km,
     });
 
@@ -370,6 +374,9 @@ export const logRunning = createServerFn({ method: "POST" })
       unlocked_achievements: stats.unlocked,
     };
   });
+
+
+
 
 // ---------- Reads ----------
 
@@ -455,6 +462,8 @@ export const getDashboard = createServerFn({ method: "GET" })
       styrka: last7Rows.filter((r: any) => r.session_type === "styrka").length,
       cirkel: last7Rows.filter((r: any) => r.session_type === "cirkel").length,
       löpning: last7Rows.filter((r: any) => r.session_type === "löpning").length,
+      cykling: last7Rows.filter((r: any) => r.session_type === "cykling").length,
+      promenad: last7Rows.filter((r: any) => r.session_type === "promenad").length,
     };
 
     return {
@@ -479,7 +488,7 @@ export const getDashboard = createServerFn({ method: "GET" })
 
 export const getHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ filter: z.enum(["alla", "styrka", "cirkel", "löpning"]).default("alla") }).parse(d))
+  .inputValidator((d: unknown) => z.object({ filter: z.enum(["alla", "styrka", "cirkel", "löpning", "cykling", "promenad"]).default("alla") }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     let q = supabase.from("workouts").select("*, running_sessions(*)").eq("user_id", userId).order("date", { ascending: false });
@@ -925,5 +934,99 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
 
 
     return { summary, insights };
+  });
+
+// ---------- Edit / Delete ----------
+
+async function recomputeUserStats(supabase: any, userId: string) {
+  const { data: rows } = await supabase
+    .from("workouts")
+    .select("date, xp_awarded")
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+  const list = (rows ?? []) as { date: string; xp_awarded: number }[];
+
+  const totalSessions = list.length;
+  const totalXp = list.reduce((s, r) => s + Number(r.xp_awarded ?? 0), 0);
+  const newLevel = levelFromXp(totalXp);
+
+  // Distinct dates ordered
+  const dates = Array.from(new Set(list.map((r) => r.date))).sort();
+  let longest = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of dates) {
+    if (prev) {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + 1);
+      run = isoDate(next) === d ? run + 1 : 1;
+    } else {
+      run = 1;
+    }
+    longest = Math.max(longest, run);
+    prev = d;
+  }
+  const last = dates[dates.length - 1] ?? null;
+  let current = 0;
+  if (last) {
+    const today = isoDate(new Date());
+    const yest = new Date();
+    yest.setDate(yest.getDate() - 1);
+    if (last === today || last === isoDate(yest)) {
+      // walk backwards from last counting consecutive
+      current = 1;
+      for (let i = dates.length - 2; i >= 0; i--) {
+        const prevDate = new Date(dates[i + 1]);
+        prevDate.setDate(prevDate.getDate() - 1);
+        if (isoDate(prevDate) === dates[i]) current++;
+        else break;
+      }
+    }
+  }
+
+  await supabase
+    .from("user_stats")
+    .upsert({
+      user_id: userId,
+      total_sessions: totalSessions,
+      current_streak: current,
+      longest_streak: longest,
+      total_xp: totalXp,
+      current_level: newLevel,
+      last_workout_date: last,
+    });
+}
+
+export const deleteWorkout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase.from("workouts").delete().eq("id", data.id).eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    await recomputeUserStats(supabase, userId);
+    return { ok: true };
+  });
+
+const UpdateWorkoutInput = z.object({
+  id: z.string().uuid(),
+  notes: z.string().nullable().optional(),
+  duration_minutes: z.number().int().nullable().optional(),
+  energy_level: z.number().int().min(1).max(10).nullable().optional(),
+});
+
+export const updateWorkout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UpdateWorkoutInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { id, ...patch } = data;
+    const { error } = await supabase
+      .from("workouts")
+      .update(patch)
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 

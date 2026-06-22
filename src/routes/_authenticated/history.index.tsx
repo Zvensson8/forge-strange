@@ -4,14 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getHistory } from "@/lib/workout.functions";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, ChevronRight } from "lucide-react";
+import { Dumbbell, Timer, Footprints, Bike, Trees, ChevronRight } from "lucide-react";
 import { formatDateSv, sessionTypeLabel } from "@/lib/forge-utils";
 
 export const Route = createFileRoute("/_authenticated/history/")({
   component: HistoryPage,
 });
 
-type Filter = "alla" | "styrka" | "cirkel" | "löpning";
+type Filter = "alla" | "styrka" | "cirkel" | "löpning" | "cykling" | "promenad";
+const FILTERS: Filter[] = ["alla", "styrka", "cirkel", "löpning", "cykling", "promenad"];
 
 function HistoryPage() {
   const [filter, setFilter] = useState<Filter>("alla");
@@ -24,8 +25,8 @@ function HistoryPage() {
         <h1 className="text-2xl font-bold">Historik</h1>
         <p className="text-sm text-muted-foreground">Alla dina pass i smedjan.</p>
       </header>
-      <div className="flex gap-2 overflow-x-auto">
-        {(["alla", "styrka", "cirkel", "löpning"] as Filter[]).map((f) => (
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {FILTERS.map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -68,7 +69,12 @@ function HistoryPage() {
 }
 
 function TypeIcon({ t }: { t: string }) {
-  const Icon = t === "styrka" ? Dumbbell : t === "cirkel" ? Timer : Footprints;
+  const Icon =
+    t === "styrka" ? Dumbbell :
+    t === "cirkel" ? Timer :
+    t === "cykling" ? Bike :
+    t === "promenad" ? Trees :
+    Footprints;
   return (
     <span className="flex h-10 w-10 items-center justify-center rounded-lg forge-gradient text-primary-foreground">
       <Icon className="h-5 w-5" strokeWidth={2.5} />

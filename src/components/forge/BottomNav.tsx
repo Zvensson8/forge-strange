@@ -6,7 +6,7 @@ type NavItem = { to: string; label: string; icon: typeof Home; primary?: boolean
 const items: NavItem[] = [
   { to: "/dashboard", label: "Hem", icon: Home },
   { to: "/goals", label: "Mål", icon: Target },
-  { to: "/log/strength", label: "Logga", icon: Plus, primary: true },
+  { to: "/log", label: "Logga", icon: Plus, primary: true },
   { to: "/achievements", label: "Märken", icon: Trophy },
   { to: "/settings", label: "Profil", icon: SettingsIcon },
 ];

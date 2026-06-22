@@ -47,5 +47,17 @@ export function sessionTypeLabel(t: string): string {
   if (t === "styrka") return "Styrka";
   if (t === "cirkel") return "Cirkel";
   if (t === "löpning") return "Löpning";
+  if (t === "cykling") return "Cykling";
+  if (t === "promenad") return "Promenad";
   return t;
 }
+
+export const BODYWEIGHT_CATEGORIES = new Set(["Push", "Pull", "Core", "Cirkel"]);
+export function isBodyweightCategory(cat?: string | null): boolean {
+  return !!cat && BODYWEIGHT_CATEGORIES.has(cat);
+}
+
+export const ALL_SESSION_TYPES = ["styrka", "cirkel", "löpning", "cykling", "promenad"] as const;
+export const DISTANCE_SESSION_TYPES = ["löpning", "cykling", "promenad"] as const;
+export type SessionType = (typeof ALL_SESSION_TYPES)[number];
+export type DistanceType = (typeof DISTANCE_SESSION_TYPES)[number];
