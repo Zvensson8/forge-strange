@@ -765,7 +765,7 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     // 14 dagar tillbaka för AI-kontext
     const ctx14Start = isoDate(new Date(Date.now() - 14 * 86400000));
 
-    const [{ data: weekRows }, { data: ctxRows }, { data: stats }] = await Promise.all([
+    const [{ data: weekRows }, { data: ctxRows }, { data: stats }, goalsResult] = await Promise.all([
       supabase
         .from("workouts")
         .select("*, running_sessions(*), sets(weight, reps, exercises(name, category))")
@@ -780,6 +780,20 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
         .gte("date", ctx14Start)
         .order("date"),
       supabase.from("user_stats").select("*").eq("user_id", userId).maybeSingle(),
+      (async () => {
+        const { listGoalsWithProgress } = await import("@/lib/goals.functions");
+        // Call internally with same context (re-using middleware-bound supabase)
+        try {
+          const { data: goals } = await supabase
+            .from("goals")
+            .select("id, title, goal_type, target_value, target_unit, target_date, session_type, status")
+            .eq("user_id", userId)
+            .eq("status", "active");
+          return goals ?? [];
+        } catch {
+          return [];
+        }
+      })(),
     ]);
 
     const workouts = weekRows ?? [];
