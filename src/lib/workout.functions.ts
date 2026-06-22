@@ -305,7 +305,7 @@ const LogDistanceInput = z.object({
   route_notes: z.string().optional(),
 });
 
-export const logDistance = createServerFn({ method: "POST" })
+export const logRunning = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => LogDistanceInput.parse(d))
   .handler(async ({ data, context }): Promise<LogResult> => {
