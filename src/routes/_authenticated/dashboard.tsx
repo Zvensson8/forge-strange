@@ -357,16 +357,16 @@ function Mini7({ label, value, accent }: { label: string; value: number; accent?
   );
 }
 
-function LogButton({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
+function LogShortcut({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
   return (
     <Link
       to={to as any}
-      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/50 hover:ember-glow"
+      className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-3 transition-all hover:border-primary/50 hover:ember-glow"
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-full forge-gradient text-primary-foreground">
-        <Icon className="h-6 w-6" strokeWidth={2.5} />
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg forge-gradient text-primary-foreground">
+        <Icon className="h-4 w-4" strokeWidth={2.5} />
       </span>
-      <span className="text-xs font-semibold">{label}</span>
+      <span className="text-[10px] font-semibold">{label}</span>
     </Link>
   );
 }
