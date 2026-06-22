@@ -296,25 +296,27 @@ export const logStrengthOrCircuit = createServerFn({ method: "POST" })
     };
   });
 
-const LogRunningInput = z.object({
+const LogDistanceInput = z.object({
   date: z.string().regex(ISO_DATE_RE),
+  session_type: z.enum(["löpning", "cykling", "promenad"]).default("löpning"),
   distance_km: z.number().positive(),
   duration_minutes: z.number().positive(),
   effort_level: z.number().int().min(1).max(10).optional(),
   route_notes: z.string().optional(),
 });
 
-export const logRunning = createServerFn({ method: "POST" })
+export const logDistance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => LogRunningInput.parse(d))
+  .inputValidator((d: unknown) => LogDistanceInput.parse(d))
   .handler(async ({ data, context }): Promise<LogResult> => {
     const { supabase, userId } = context;
 
-    // PR: compare distance, duration, pace vs history
+    // PR: jämför mot historik inom samma session_type
     const { data: prevRuns } = await supabase
       .from("running_sessions")
-      .select("distance_km, duration_minutes, avg_pace_seconds, workouts!inner(user_id)")
-      .eq("workouts.user_id", userId);
+      .select("distance_km, duration_minutes, avg_pace_seconds, workouts!inner(user_id, session_type)")
+      .eq("workouts.user_id", userId)
+      .eq("workouts.session_type", data.session_type);
     const prevMaxDist = (prevRuns ?? []).reduce((m: number, r: any) => Math.max(m, Number(r.distance_km)), 0);
     const prevBestPace = (prevRuns ?? []).reduce(
       (m: number, r: any) => (m === 0 ? Number(r.avg_pace_seconds) : Math.min(m, Number(r.avg_pace_seconds))),
@@ -331,14 +333,15 @@ export const logRunning = createServerFn({ method: "POST" })
       .insert({
         user_id: userId,
         date: data.date,
-        session_type: "löpning",
+        session_type: data.session_type,
         duration_minutes: Math.round(data.duration_minutes),
         had_pr: prs.length > 0,
         xp_awarded: 0,
+        notes: data.route_notes ?? null,
       })
       .select()
       .single();
-    if (wErr || !workout) throw new Error(wErr?.message ?? "Kunde inte spara löprunda");
+    if (wErr || !workout) throw new Error(wErr?.message ?? "Kunde inte spara pass");
 
     await supabase.from("running_sessions").insert({
       workout_id: workout.id,
@@ -349,11 +352,12 @@ export const logRunning = createServerFn({ method: "POST" })
       route_notes: data.route_notes ?? null,
     });
 
+    const xpBase = data.session_type === "promenad" ? 35 : 50;
     const stats = await updateStatsAndAchievements(supabase, userId, {
-      session_type: "löpning",
+      session_type: data.session_type,
       date: data.date,
       had_pr: prs.length > 0,
-      xp_base: 50,
+      xp_base: xpBase,
       distance_km: data.distance_km,
     });
 
@@ -370,6 +374,10 @@ export const logRunning = createServerFn({ method: "POST" })
       unlocked_achievements: stats.unlocked,
     };
   });
+
+// Backwards-compat alias
+export const logRunning = logDistance;
+
 
 // ---------- Reads ----------
 
