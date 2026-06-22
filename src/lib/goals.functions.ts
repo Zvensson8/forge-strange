@@ -69,8 +69,10 @@ export const deleteGoal = createServerFn({ method: "POST" })
 export const listGoalsWithProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+    return computeGoalsWithProgress(context.supabase, context.userId);
+  });
 
+export async function computeGoalsWithProgress(supabase: any, userId: string) {
     const { data: goals } = await supabase
       .from("goals")
       .select("*, exercises(name)")
