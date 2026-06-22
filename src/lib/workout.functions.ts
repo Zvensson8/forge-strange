@@ -462,6 +462,8 @@ export const getDashboard = createServerFn({ method: "GET" })
       styrka: last7Rows.filter((r: any) => r.session_type === "styrka").length,
       cirkel: last7Rows.filter((r: any) => r.session_type === "cirkel").length,
       löpning: last7Rows.filter((r: any) => r.session_type === "löpning").length,
+      cykling: last7Rows.filter((r: any) => r.session_type === "cykling").length,
+      promenad: last7Rows.filter((r: any) => r.session_type === "promenad").length,
     };
 
     return {
