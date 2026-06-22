@@ -21,7 +21,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-type Filter = "alla" | "styrka" | "cirkel" | "löpning";
+type Filter = "alla" | "styrka" | "cirkel" | "löpning" | "cykling" | "promenad";
+const HEATMAP_FILTERS: Filter[] = ["alla", "styrka", "cirkel", "löpning", "cykling", "promenad"];
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -127,11 +128,30 @@ function Dashboard() {
         </div>
       </Card>
 
-      {/* Quick log */}
-      <div className="grid grid-cols-3 gap-2">
-        <LogButton to="/log/strength" icon={Dumbbell} label="Styrka" />
-        <LogButton to="/log/circuit" icon={Timer} label="Cirkel" />
-        <LogButton to="/log/running" icon={Footprints} label="Löpning" />
+      {/* Primary log button → chooser */}
+      <Link
+        to="/log"
+        className="flex items-center justify-between rounded-xl border border-primary/50 bg-card p-4 transition-all hover:ember-glow"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full forge-gradient text-primary-foreground ember-glow">
+            <Plus className="h-6 w-6" strokeWidth={2.5} />
+          </span>
+          <div>
+            <p className="text-base font-bold">Logga pass</p>
+            <p className="text-xs text-muted-foreground">Välj styrka, cirkel, löpning, cykel eller promenad</p>
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      </Link>
+
+      {/* Quick shortcuts */}
+      <div className="grid grid-cols-5 gap-2">
+        <LogShortcut to="/log/strength" icon={Dumbbell} label="Styrka" />
+        <LogShortcut to="/log/circuit" icon={Timer} label="Cirkel" />
+        <LogShortcut to="/log/running" icon={Footprints} label="Löp" />
+        <LogShortcut to="/log/cycling" icon={Bike} label="Cykel" />
+        <LogShortcut to="/log/walking" icon={Trees} label="Gå" />
       </div>
 
       {/* Quick minipass */}
