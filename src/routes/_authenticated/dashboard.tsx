@@ -41,6 +41,31 @@ function Dashboard() {
     queryFn: () => getDash(),
   });
 
+  const goalsFn = useServerFn(listGoalsWithProgress);
+  const goalsQ = useQuery({ queryKey: ["goals"], queryFn: () => goalsFn() });
+  const goals = (goalsQ.data ?? []) as GoalWithProgress[];
+  const activeGoals = goals.filter((g) => !g.completed);
+  const urgentEvent = activeGoals.find(
+    (g) => g.goal_type === "event" && g.weeks_left !== null && g.weeks_left <= 6,
+  );
+  const reminderGoal = activeGoals.find((g) => (g as any).reminder_enabled);
+
+  // In-app reminder: visa toast om man inte loggat idag och har påminnelse på
+  useEffect(() => {
+    if (!dash.data || !reminderGoal) return;
+    const key = `forge-reminded-${new Date().toISOString().slice(0, 10)}`;
+    if (sessionStorage.getItem(key)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const trainedToday = dash.data.stats?.last_workout_date === today;
+    if (!trainedToday) {
+      toast(`Påminnelse: ${reminderGoal.title}`, {
+        description: "Logga ett pass idag för att hålla takten mot ditt mål.",
+        duration: 6000,
+      });
+      sessionStorage.setItem(key, "1");
+    }
+  }, [dash.data, reminderGoal]);
+
   useEffect(() => {
     if (dash.data && dash.data.stats.total_sessions === 0 && !seedMut.isPending && !seedMut.isSuccess) {
       seedMut.mutate();
