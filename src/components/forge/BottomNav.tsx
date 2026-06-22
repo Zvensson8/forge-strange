@@ -1,11 +1,11 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Plus, Calendar, Trophy, Settings as SettingsIcon } from "lucide-react";
+import { Home, Plus, Target, Trophy, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; icon: typeof Home; primary?: boolean };
 const items: NavItem[] = [
   { to: "/dashboard", label: "Hem", icon: Home },
-  { to: "/history", label: "Historik", icon: Calendar },
+  { to: "/goals", label: "Mål", icon: Target },
   { to: "/log/strength", label: "Logga", icon: Plus, primary: true },
   { to: "/achievements", label: "Märken", icon: Trophy },
   { to: "/settings", label: "Profil", icon: SettingsIcon },
