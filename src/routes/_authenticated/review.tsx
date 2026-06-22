@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getWeeklyReview } from "@/lib/workout.functions";
@@ -118,6 +118,46 @@ function ReviewPage() {
                 <span className="font-mono text-xs text-muted-foreground">{formatDateSv(pr.date)}</span>
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Goal status */}
+      {s?.goals && s.goals.length > 0 && (
+        <Card className="border-border bg-card p-5">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Status för dina mål
+          </p>
+          <div className="space-y-2">
+            {s.goals.map((g: any) => {
+              const tone =
+                g.pace === "Före plan"
+                  ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                  : g.pace === "På rätt spår"
+                    ? "text-primary bg-primary/10 border-primary/30"
+                    : g.pace === "Behöver öka"
+                      ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                      : "text-red-400 bg-red-500/10 border-red-500/30";
+              return (
+                <Link
+                  key={g.id}
+                  to="/goals/$id"
+                  params={{ id: g.id }}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3 hover:border-primary/40"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{g.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-mono">{g.current}</span> / <span className="font-mono">{g.target}</span>
+                      {g.weeks_left !== null && ` · ${g.weeks_left} v kvar`}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone}`}>
+                    {g.pace} · {g.progress_pct}%
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </Card>
       )}

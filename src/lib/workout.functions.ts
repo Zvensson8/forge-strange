@@ -765,7 +765,9 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     // 14 dagar tillbaka för AI-kontext
     const ctx14Start = isoDate(new Date(Date.now() - 14 * 86400000));
 
-    const [{ data: weekRows }, { data: ctxRows }, { data: stats }] = await Promise.all([
+    const { computeGoalsWithProgress } = await import("@/lib/goals.functions");
+
+    const [{ data: weekRows }, { data: ctxRows }, { data: stats }, goalsWithProgress] = await Promise.all([
       supabase
         .from("workouts")
         .select("*, running_sessions(*), sets(weight, reps, exercises(name, category))")
@@ -780,7 +782,10 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
         .gte("date", ctx14Start)
         .order("date"),
       supabase.from("user_stats").select("*").eq("user_id", userId).maybeSingle(),
+      computeGoalsWithProgress(supabase, userId),
     ]);
+
+    const activeGoals = (goalsWithProgress ?? []).filter((g: any) => !g.completed);
 
     const workouts = weekRows ?? [];
 
@@ -819,6 +824,21 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     const energyAvg = energyVals.length ? energyVals.reduce((a, b) => a + b, 0) / energyVals.length : null;
     const energyTrend = energyVals.length >= 2 ? energyVals[energyVals.length - 1] - energyVals[0] : 0;
 
+    const goalStatuses = activeGoals.map((g: any) => {
+      const paceLabel =
+        g.pace === "ahead" ? "Före plan" : g.pace === "on_track" ? "På rätt spår" : g.pace === "behind" ? "Behöver öka" : "Risk att missa";
+      return {
+        id: g.id,
+        title: g.title,
+        type: g.goal_type,
+        target: `${g.target_value} ${g.target_unit}${g.target_reps ? `×${g.target_reps}` : ""}`,
+        current: g.current_label,
+        progress_pct: g.progress_pct,
+        weeks_left: g.weeks_left,
+        pace: paceLabel,
+      };
+    });
+
     const summary = {
       total: workouts.length,
       strength: workouts.filter((w: any) => w.session_type === "styrka").length,
@@ -832,6 +852,7 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
       current_streak: stats?.current_streak ?? 0,
       energy_avg: energyAvg,
       energy_trend: energyTrend,
+      goals: goalStatuses,
     };
 
     const apiKey = process.env.LOVABLE_API_KEY;
@@ -875,10 +896,16 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
               pr_antal: summary.pr_count,
               snitt_energi: summary.energy_avg,
             }) +
+            (goalStatuses.length
+              ? "\n\nAktiva mål (med aktuell takt):\n" + JSON.stringify(goalStatuses)
+              : "") +
             "\n\nGe EXAKT 3 punkter på svenska, varje punkt 1–2 meningar. " +
             "Var konkret och personlig: hänvisa till specifika veckodagar, mönster, kombinationer av passtyper eller energinivåer. " +
+            (goalStatuses.length
+              ? "MINST EN punkt MÅSTE handla om hur veckan påverkar något av de aktiva målen – nämn målet vid namn och säg vad som krävs nästa vecka. "
+              : "") +
             "Undvik generiska råd som 'bra jobbat', 'fortsätt så' eller 'kom ihåg att vila'. " +
-            "Föreslå EN konkret handling per punkt (t.ex. 'flytta ett kort styrkepass till lördag', 'kombinera löpning med cirkel på onsdag'). " +
+            "Föreslå EN konkret handling per punkt (t.ex. 'flytta ett kort styrkepass till lördag', 'lägg en löprunda på 5 km onsdag för att hålla halvmaraton-takten'). " +
             "Format: bara tre punkter med '- ' framför. Ingen rubrik, ingen disclaimer.",
         });
         insights = text.trim();
@@ -888,10 +915,14 @@ export const getWeeklyReview = createServerFn({ method: "POST" })
     }
 
     if (!insights) {
+      const goalLine = goalStatuses.length
+        ? `\n- Mål "${goalStatuses[0].title}": ${goalStatuses[0].pace} (${goalStatuses[0].progress_pct}%). Logga relevant pass för att hålla takten.`
+        : "";
       insights = summary.total === 0
-        ? "- Veckan är fortfarande öppen – ett 15-minuters minipass idag håller din streak vid liv.\n- Lägg ett kort cirkelpass på lunchen för att bryta stillasittande.\n- Plocka en löprunda på 20 min i kväll om vädret tillåter."
-        : `- Du har ${summary.total} pass och ${summary.days_trained} träningsdagar – bygg vidare med ett kort pass till innan veckan tar slut.\n- Balansen ${summary.strength}/${summary.circuit}/${summary.running} (styrka/cirkel/löpning) ser ${summary.strength === 0 ? "tunn ut på styrka – lägg ett kort styrkepass" : "stabil ut"}.\n- Streak: ${summary.current_streak} dagar. Skydda den med ett minipass på lågmotivationsdagar.`;
+        ? "- Veckan är fortfarande öppen – ett 15-minuters minipass idag håller din streak vid liv.\n- Lägg ett kort cirkelpass på lunchen för att bryta stillasittande." + (goalLine || "\n- Plocka en löprunda på 20 min i kväll om vädret tillåter.")
+        : `- Du har ${summary.total} pass och ${summary.days_trained} träningsdagar – bygg vidare med ett kort pass till innan veckan tar slut.\n- Balansen ${summary.strength}/${summary.circuit}/${summary.running} (styrka/cirkel/löpning) ser ${summary.strength === 0 ? "tunn ut på styrka – lägg ett kort styrkepass" : "stabil ut"}.` + (goalLine || `\n- Streak: ${summary.current_streak} dagar. Skydda den med ett minipass på lågmotivationsdagar.`);
     }
+
 
     return { summary, insights };
   });
