@@ -24,6 +24,7 @@ import { Route as AuthenticatedLogQuickRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedLogCircuitRouteImport } from './routes/_authenticated/log.circuit'
 import { Route as AuthenticatedHistoryIdRouteImport } from './routes/_authenticated/history.$id'
 import { Route as AuthenticatedGoalsNewRouteImport } from './routes/_authenticated/goals.new'
+import { Route as AuthenticatedGoalsIdRouteImport } from './routes/_authenticated/goals.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -102,6 +103,11 @@ const AuthenticatedGoalsNewRoute = AuthenticatedGoalsNewRouteImport.update({
   path: '/goals/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGoalsIdRoute = AuthenticatedGoalsIdRouteImport.update({
+  id: '/goals/$id',
+  path: '/goals/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/review': typeof AuthenticatedReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/goals/$id': typeof AuthenticatedGoalsIdRoute
   '/goals/new': typeof AuthenticatedGoalsNewRoute
   '/history/$id': typeof AuthenticatedHistoryIdRoute
   '/log/circuit': typeof AuthenticatedLogCircuitRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/review': typeof AuthenticatedReviewRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/goals/$id': typeof AuthenticatedGoalsIdRoute
   '/goals/new': typeof AuthenticatedGoalsNewRoute
   '/history/$id': typeof AuthenticatedHistoryIdRoute
   '/log/circuit': typeof AuthenticatedLogCircuitRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/review': typeof AuthenticatedReviewRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/goals/$id': typeof AuthenticatedGoalsIdRoute
   '/_authenticated/goals/new': typeof AuthenticatedGoalsNewRoute
   '/_authenticated/history/$id': typeof AuthenticatedHistoryIdRoute
   '/_authenticated/log/circuit': typeof AuthenticatedLogCircuitRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/review'
     | '/settings'
+    | '/goals/$id'
     | '/goals/new'
     | '/history/$id'
     | '/log/circuit'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/review'
     | '/settings'
+    | '/goals/$id'
     | '/goals/new'
     | '/history/$id'
     | '/log/circuit'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/review'
     | '/_authenticated/settings'
+    | '/_authenticated/goals/$id'
     | '/_authenticated/goals/new'
     | '/_authenticated/history/$id'
     | '/_authenticated/log/circuit'
@@ -318,6 +330,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGoalsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/goals/$id': {
+      id: '/_authenticated/goals/$id'
+      path: '/goals/$id'
+      fullPath: '/goals/$id'
+      preLoaderRoute: typeof AuthenticatedGoalsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -326,6 +345,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedReviewRoute: typeof AuthenticatedReviewRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedGoalsIdRoute: typeof AuthenticatedGoalsIdRoute
   AuthenticatedGoalsNewRoute: typeof AuthenticatedGoalsNewRoute
   AuthenticatedHistoryIdRoute: typeof AuthenticatedHistoryIdRoute
   AuthenticatedLogCircuitRoute: typeof AuthenticatedLogCircuitRoute
@@ -341,6 +361,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedReviewRoute: AuthenticatedReviewRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedGoalsIdRoute: AuthenticatedGoalsIdRoute,
   AuthenticatedGoalsNewRoute: AuthenticatedGoalsNewRoute,
   AuthenticatedHistoryIdRoute: AuthenticatedHistoryIdRoute,
   AuthenticatedLogCircuitRoute: AuthenticatedLogCircuitRoute,
