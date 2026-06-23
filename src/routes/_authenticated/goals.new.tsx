@@ -25,7 +25,7 @@ const TYPE_META: Record<GoalType, { label: string; icon: any; hint: string }> = 
   distance: { label: "Distans", icon: Footprints, hint: "Total distans inom en period" },
   sessions: { label: "Antal pass", icon: Timer, hint: "Logga ett antal pass av en viss typ" },
   event: { label: "Evenemang", icon: CalendarClock, hint: "Träna mot en deadline – lopp, race" },
-  process: { label: "Processmål", icon: Repeat, hint: "T.ex. 3 pass per vecka – håll vanan" },
+  process: { label: "Återkommande", icon: Repeat, hint: "T.ex. 3 pass eller 20 km per vecka – håll vanan" },
 };
 
 const SESSION_TYPES = ["styrka", "cirkel", "löpning", "cykling", "promenad"] as const;
