@@ -81,9 +81,9 @@ const numIntPositive = z.preprocess(coerceNumber, z.number().int().positive());
 export const goalSchema = z.object({
   title: z.string().min(1, "Titel saknas").max(120),
   goal_type: z.enum(GOAL_TYPES),
-  target_value: numberFromInput.refine((n) => n >= 0, "Måste vara ≥ 0"),
+  target_value: numNonNeg,
   target_unit: z.string().min(1).max(20),
-  target_reps: numberFromInput.int().positive().nullable().optional(),
+  target_reps: numIntPositive.nullable().optional(),
   exercise_id: z.string().uuid().nullable().optional(),
   session_type: z.enum(SESSION_TYPES).nullable().optional(),
   target_date: isoDateSchema.nullable().optional(),
@@ -93,7 +93,7 @@ export const goalSchema = z.object({
   notes: z.string().optional(),
   parent_goal_id: z.string().uuid().nullable().optional(),
   process_period: z.enum(PROCESS_PERIODS).nullable().optional(),
-  process_target_count: numberFromInput.positive().nullable().optional(),
+  process_target_count: numPositive.nullable().optional(),
   process_metric: z.enum(PROCESS_METRICS).nullable().optional(),
 });
 
@@ -124,8 +124,8 @@ export type LogStrengthInput = z.infer<typeof logStrengthSchema>;
 export const logDistanceSchema = z.object({
   date: isoDateSchema,
   session_type: z.enum(DISTANCE_SESSION_TYPES).default("löpning"),
-  distance_km: numberFromInput.positive("Distans måste vara > 0"),
-  duration_minutes: numberFromInput.positive("Tid måste vara > 0"),
+  distance_km: numPositive,
+  duration_minutes: numPositive,
   effort_level: z.number().int().min(1).max(10).optional(),
   route_notes: z.string().optional(),
 });
