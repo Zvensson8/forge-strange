@@ -145,6 +145,34 @@ function Dashboard() {
         </div>
       </Card>
 
+      {/* Streak danger - kvällsbanner */}
+      <StreakDangerBanner streak={stats?.current_streak ?? 0} lastDate={stats?.last_workout_date ?? null} />
+
+      {/* Trajectory - långsiktig progression */}
+      {trajectoryGoal && <TrajectoryCard goal={trajectoryGoal as any} />}
+
+      {/* Risk att missa */}
+      {riskGoals.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-200">Mål i riskzon</p>
+          </div>
+          <div className="space-y-2">
+            {riskGoals.map((g) => (
+              <Link key={g.id} to="/goals/$id" params={{ id: g.id }} className="block rounded-md bg-amber-500/10 p-2.5 text-xs hover:bg-amber-500/20">
+                <p className="font-semibold text-amber-100">{g.title}</p>
+                <p className="mt-0.5 text-amber-200/80">
+                  {g.required_per_week && g.current_per_week !== null && g.current_per_week !== undefined
+                    ? `Krav: ${g.required_per_week} ${g.target_unit}/v · du gör ${g.current_per_week} – öka takten`
+                    : `${g.progress_pct}% – ${g.pace === "danger" ? "långt efter" : "efter"} plan`}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Primary log button → chooser */}
       <Link
         to="/log"
