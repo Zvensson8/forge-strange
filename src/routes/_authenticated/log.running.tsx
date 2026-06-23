@@ -57,14 +57,7 @@ export function LogDistance({ kind, title }: { kind: DistanceType; title: string
         },
       });
       qc.invalidateQueries();
-      toast.success(`+${res.xp_gained} XP · Streak ${res.streak} 🔥`, {
-        description:
-          (res.prs.includes("distance") ? "Längsta passet! " : "") +
-          (res.prs.includes("pace") ? "Snabbaste pace! " : "") +
-          (res.leveled_up ? `Forge Level ${res.new_level}!` : ""),
-      });
-      for (const a of res.unlocked_achievements) toast(a.name, { description: "Märke upplåst" });
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/log/success", search: { id: res.workout_id, leveled_up: res.leveled_up } });
     } catch (e: any) {
       toast.error(e.message ?? "Kunde inte spara");
     } finally {
