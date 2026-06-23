@@ -101,7 +101,7 @@ function fakeWorkout(
   session_type: SessionType,
   date: string,
   extras: Partial<Workout> = {},
-): Workout {
+): OptimisticWorkout {
   return {
     id: `optimistic-${crypto.randomUUID()}`,
     user_id: "",
