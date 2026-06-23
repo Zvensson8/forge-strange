@@ -61,7 +61,7 @@ export const isoDateSchema = z.string().regex(ISO_DATE_RE, "Måste vara YYYY-MM-
 // Coerce empty strings / NaN safely to a number. RHF + <Input type="number">
 // can emit "" which Number() turns into 0 but parseFloat into NaN — z.coerce
 // alone is brittle, so we normalize before parsing.
-const numberFromInput = z.preprocess((v) => {
+function coerceNumber(v: unknown): unknown {
   if (v === "" || v === null || v === undefined) return undefined;
   if (typeof v === "string") {
     const n = Number(v.replace(",", "."));
@@ -69,7 +69,10 @@ const numberFromInput = z.preprocess((v) => {
   }
   if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
   return v;
-}, z.number());
+}
+const numNonNeg = z.preprocess(coerceNumber, z.number().min(0, "Måste vara ≥ 0"));
+const numPositive = z.preprocess(coerceNumber, z.number().positive("Måste vara > 0"));
+const numIntPositive = z.preprocess(coerceNumber, z.number().int().positive());
 
 // ---------------------------------------------------------------------------
 // Goal schema (mirrors server validator)
