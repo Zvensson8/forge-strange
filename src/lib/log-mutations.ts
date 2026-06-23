@@ -31,9 +31,11 @@ type Ctx = {
   prevDashboard: unknown;
 };
 
+type OptimisticWorkout = Workout & { session_type: SessionType };
+
 function applyOptimisticHistory(
   qc: ReturnType<typeof useQueryClient>,
-  fake: Partial<Workout> & { id: string; date: string; session_type: SessionType },
+  fake: OptimisticWorkout,
 ): Map<unknown, unknown> {
   const prev = new Map<unknown, unknown>();
   const queries = qc.getQueriesData<Workout[]>({ queryKey: qk.historyAll });
@@ -42,7 +44,7 @@ function applyOptimisticHistory(
     if (!data) continue;
     const filter = (key as unknown[])[1] as string | undefined;
     if (filter && filter !== "alla" && filter !== fake.session_type) continue;
-    qc.setQueryData<Workout[]>(key as readonly unknown[] as any, [fake as Workout, ...data]);
+    qc.setQueryData<Workout[]>(key as readonly unknown[] as any, [fake, ...data]);
   }
   return prev;
 }
