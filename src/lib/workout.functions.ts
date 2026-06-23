@@ -454,6 +454,14 @@ export const getDashboard = createServerFn({ method: "GET" })
       promenad: last7Rows.filter((r: any) => r.session_type === "promenad").length,
     };
 
+    // Derive weekly quest progress from actual workouts this ISO week
+    // (so deletions/edits stay in sync, not just the increment on create)
+    const wkStart = weekStartISO();
+    const weekCount = (heatmapRows ?? []).filter((r: any) => r.date >= wkStart).length;
+    const derivedQuest = quest
+      ? { ...quest, progress: weekCount, completed: weekCount >= quest.target }
+      : null;
+
     return {
       stats: stats ?? {
         total_sessions: 0,
@@ -466,7 +474,8 @@ export const getDashboard = createServerFn({ method: "GET" })
       profile,
       heatmap: heatmapRows ?? [],
       recent_achievements: (latestAch ?? []).map((u: any) => u.achievements),
-      quest,
+      quest: derivedQuest,
+
       strength_series: strengthSeries,
       running_series: runningSeries,
       last7,
