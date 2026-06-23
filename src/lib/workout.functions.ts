@@ -1030,3 +1030,235 @@ export const updateWorkout = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- Wins / celebration ----------
+
+type Win = { kind: "pr" | "longest" | "fastest" | "comeback" | "milestone"; label: string };
+
+async function detectWins(
+  supabase: any,
+  userId: string,
+  workout: any,
+): Promise<Win[]> {
+  const wins: Win[] = [];
+
+  // PR från workout-flagga
+  if (workout.had_pr) {
+    if (workout.session_type === "löpning" || workout.session_type === "cykling") {
+      wins.push({ kind: "pr", label: "Nytt PR i denna aktivitet" });
+    } else {
+      wins.push({ kind: "pr", label: "Nytt styrke-PR" });
+    }
+  }
+
+  // Comeback: föregående pass var ≥ 7 dagar bort
+  const { data: prev } = await supabase
+    .from("workouts")
+    .select("date")
+    .eq("user_id", userId)
+    .lt("date", workout.date)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (prev) {
+    const gap = Math.round((new Date(workout.date).getTime() - new Date(prev.date).getTime()) / 86400000);
+    if (gap >= 7) wins.push({ kind: "comeback", label: `Tillbaka efter ${gap} dagars uppehåll` });
+  }
+
+  // Streak-milstolpar
+  const { data: stats } = await supabase.from("user_stats").select("current_streak").eq("user_id", userId).maybeSingle();
+  const streak = stats?.current_streak ?? 0;
+  const milestones = [7, 14, 30, 50, 100, 200, 365];
+  if (milestones.includes(streak)) wins.push({ kind: "milestone", label: `${streak} dagars streak nådd!` });
+
+  // Distans-baserade wins
+  if (workout.session_type === "löpning" || workout.session_type === "cykling" || workout.session_type === "promenad") {
+    const { data: run } = await supabase
+      .from("running_sessions")
+      .select("distance_km, avg_pace_seconds")
+      .eq("workout_id", workout.id)
+      .maybeSingle();
+    if (run) {
+      // Längsta de senaste 6 veckorna?
+      const sixWeeksAgo = isoDate(new Date(Date.now() - 42 * 86400000));
+      const { data: recent } = await supabase
+        .from("running_sessions")
+        .select("distance_km, avg_pace_seconds, workouts!inner(user_id, session_type, date)")
+        .eq("workouts.user_id", userId)
+        .eq("workouts.session_type", workout.session_type)
+        .gte("workouts.date", sixWeeksAgo)
+        .neq("workout_id", workout.id);
+      const maxRecent = (recent ?? []).reduce((m: number, r: any) => Math.max(m, Number(r.distance_km)), 0);
+      if (Number(run.distance_km) > maxRecent && maxRecent > 0) {
+        wins.push({ kind: "longest", label: `Längsta ${workout.session_type === "cykling" ? "cykelturen" : workout.session_type === "promenad" ? "promenaden" : "löprundan"} på 6 veckor` });
+      }
+      const minPace = (recent ?? []).reduce((m: number, r: any) => (m === 0 ? Number(r.avg_pace_seconds) : Math.min(m, Number(r.avg_pace_seconds))), 0);
+      if (workout.session_type === "löpning" && minPace > 0 && Number(run.avg_pace_seconds) < minPace) {
+        wins.push({ kind: "fastest", label: "Snabbaste pace på 6 veckor" });
+      }
+    }
+  }
+
+  return wins;
+}
+
+export const getWorkoutCelebration = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ workout_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: w } = await supabase
+      .from("workouts")
+      .select("*, running_sessions(*)")
+      .eq("id", data.workout_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!w) throw new Error("Hittade inte passet");
+
+    const [{ data: stats }, wins, goalImpact] = await Promise.all([
+      supabase.from("user_stats").select("*").eq("user_id", userId).maybeSingle(),
+      detectWins(supabase, userId, w),
+      (async () => {
+        const { computeGoalImpact } = await import("@/lib/goals.functions");
+        return computeGoalImpact(supabase, userId, { id: w.id, date: w.date, session_type: w.session_type });
+      })(),
+    ]);
+
+    const titleMap: Record<string, string> = {
+      styrka: "Styrkepass loggat",
+      cirkel: "Cirkelpass loggat",
+      löpning: "Löprunda loggad",
+      cykling: "Cykeltur loggad",
+      promenad: "Promenad loggad",
+    };
+
+    const run = w.running_sessions?.[0];
+    const subtitle = run
+      ? `${Number(run.distance_km).toFixed(1)} km · ${Math.round(Number(run.duration_minutes))} min`
+      : w.duration_minutes
+        ? `${w.duration_minutes} min`
+        : undefined;
+
+    return {
+      workout_id: w.id,
+      title: titleMap[w.session_type] ?? "Pass loggat",
+      subtitle,
+      xp_gained: Number(w.xp_awarded ?? 0),
+      total_xp: Number(stats?.total_xp ?? 0),
+      new_level: Number(stats?.current_level ?? 0),
+      leveled_up: false, // celebration kommer sekundärt – level-up signal hanteras i log fn
+      streak: Number(stats?.current_streak ?? 0),
+      wins,
+      goal_impact: goalImpact,
+      unlocked_achievements: [] as { code: string; name: string }[],
+    };
+  });
+
+// ---------- Monthly review ----------
+
+export const getMonthlyReview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const msISO = isoDate(monthStart);
+    const nmISO = isoDate(nextMonth);
+
+    const { computeGoalsWithProgress } = await import("@/lib/goals.functions");
+
+    const [{ data: workouts }, { data: stats }, goalsWithProgress] = await Promise.all([
+      supabase
+        .from("workouts")
+        .select("*, running_sessions(*), sets(weight, reps)")
+        .eq("user_id", userId)
+        .gte("date", msISO)
+        .lt("date", nmISO)
+        .order("date"),
+      supabase.from("user_stats").select("*").eq("user_id", userId).maybeSingle(),
+      computeGoalsWithProgress(supabase, userId),
+    ]);
+
+    const sessionsByType: Record<string, number> = { styrka: 0, cirkel: 0, löpning: 0, cykling: 0, promenad: 0 };
+    let totalVolume = 0;
+    let totalDistance = 0;
+    let totalMinutes = 0;
+    let prCount = 0;
+    const distinctDays = new Set<string>();
+
+    for (const w of workouts ?? []) {
+      sessionsByType[w.session_type] = (sessionsByType[w.session_type] ?? 0) + 1;
+      totalMinutes += Number(w.duration_minutes ?? 0);
+      distinctDays.add(w.date);
+      if (w.had_pr) prCount += 1;
+      for (const s of (w as any).sets ?? []) {
+        totalVolume += Number(s.weight ?? 0) * Number(s.reps ?? 0);
+      }
+      for (const r of (w as any).running_sessions ?? []) {
+        totalDistance += Number(r.distance_km ?? 0);
+      }
+    }
+
+    const summary = {
+      month: msISO,
+      total: (workouts ?? []).length,
+      days_trained: distinctDays.size,
+      total_volume_kg: Math.round(totalVolume),
+      total_distance: Number(totalDistance.toFixed(1)),
+      total_minutes: Math.round(totalMinutes),
+      sessions_by_type: sessionsByType,
+      pr_count: prCount,
+      current_streak: stats?.current_streak ?? 0,
+      longest_streak: stats?.longest_streak ?? 0,
+      goals: (goalsWithProgress ?? []).filter((g: any) => !g.completed).map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        progress_pct: g.progress_pct,
+        pace: g.pace,
+        current_label: g.current_label,
+        target: `${g.target_value} ${g.target_unit}`,
+        weeks_left: g.weeks_left,
+        required_per_week: g.required_per_week,
+        current_per_week: g.current_per_week,
+      })),
+    };
+
+    // AI-insikter
+    const apiKey = process.env.LOVABLE_API_KEY;
+    let insights = "";
+    if (apiKey) {
+      try {
+        const { createLovableAiGatewayProvider } = await import("@/lib/ai-gateway.server");
+        const { generateText } = await import("ai");
+        const gateway = createLovableAiGatewayProvider(apiKey);
+        const { text } = await generateText({
+          model: gateway("google/gemini-3-flash-preview"),
+          prompt:
+            "Du är en klok, rak svensk träningscoach. Skriv en kort månadsöversikt (4–5 punkter på svenska, max 2 meningar per punkt). " +
+            "Lyft fram: 1) helhet (volym, antal pass), 2) tydligaste framstegen, 3) områden som tappade, " +
+            "4) status för aktiva mål (nämn vid namn), 5) en konkret rekommendation för nästa månad.\n\n" +
+            "Månadsdata:\n" + JSON.stringify(summary) +
+            "\n\nFormat: bara punkter med '- ' framför. Ingen rubrik.",
+        });
+        insights = text.trim();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!insights) {
+      insights = `- Du genomförde ${summary.total} pass på ${summary.days_trained} dagar denna månad.\n- Lyftvolym: ${summary.total_volume_kg.toLocaleString("sv-SE")} kg, distans: ${summary.total_distance} km.\n- Streak nu: ${summary.current_streak} dagar (längsta: ${summary.longest_streak}).\n- ${summary.goals.length ? `Aktiva mål: ${summary.goals.length}. Håll fokus på det med kortast deadline.` : "Sätt ett mål för att smedjan ska kunna coacha dig."}\n- Nästa månad: hitta ett pass i veckan som du nästan alltid kan hålla.`;
+    }
+
+    // Cacha (best-effort)
+    try {
+      await supabase
+        .from("monthly_reviews")
+        .upsert({ user_id: userId, month_start: msISO, payload: summary, insights }, { onConflict: "user_id,month_start" });
+    } catch {
+      /* noop */
+    }
+
+    return { summary, insights };
+  });
+
+
