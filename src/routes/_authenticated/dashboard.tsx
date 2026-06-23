@@ -76,11 +76,6 @@ function Dashboard() {
     }
   }, [dash.data, reminderGoal]);
 
-  useEffect(() => {
-    if (dash.data && dash.data.stats.total_sessions === 0 && !seedMut.isPending && !seedMut.isSuccess) {
-      seedMut.mutate();
-    }
-  }, [dash.data, seedMut]);
 
   async function signOut() {
     await supabase.auth.signOut();
