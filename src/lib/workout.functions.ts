@@ -532,167 +532,36 @@ export const updateProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ---------- Demo seed ----------
+// ---------- Reset all training data (used to clear demo/seed data) ----------
 
-export const seedDemoIfEmpty = createServerFn({ method: "POST" })
+export const clearAllMyData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data: stats } = await supabase.from("user_stats").select("total_sessions").eq("user_id", userId).maybeSingle();
-    if (stats && stats.total_sessions > 0) return { seeded: false };
-
-    const today = new Date();
-    // 14 sessions across last 6 weeks - mostly compact recent
-    const offsets = [1, 2, 4, 6, 8, 10, 12, 14, 17, 20, 22, 25, 28, 32];
-    const squatId = "11111111-0000-0000-0000-000000000001";
-    const dlId = "11111111-0000-0000-0000-000000000002";
-    const pushId = "11111111-0000-0000-0000-000000000004";
-    const pullId = "11111111-0000-0000-0000-000000000007";
-    const burpeeId = "11111111-0000-0000-0000-00000000000c";
-    const swingId = "11111111-0000-0000-0000-00000000000f";
-    const passA = "22222222-0000-0000-0000-000000000001";
-    const passB = "22222222-0000-0000-0000-000000000002";
-    const cirkel = "22222222-0000-0000-0000-000000000003";
-
-    let squatWeight = 70;
-    let totalXp = 0;
-    let totalSessions = 0;
-    let lastDate: string | null = null;
-    let streak = 0;
-    let longest = 0;
-
-    // Iterate from oldest to newest
-    const ordered = [...offsets].sort((a, b) => b - a);
-
-    for (const off of ordered) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - off);
-      const dISO = isoDate(d);
-      const r = off % 3;
-      let type: "styrka" | "cirkel" | "löpning";
-      let template_id: string | null = null;
-      if (r === 0) {
-        type = "styrka";
-        template_id = passA;
-      } else if (r === 1) {
-        type = "cirkel";
-        template_id = cirkel;
-      } else {
-        type = "löpning";
-      }
-      if (off === 4 || off === 8) {
-        type = "styrka";
-        template_id = passB;
-      }
-
-      const xpBase = type === "cirkel" ? 60 : 50;
-      const xp = xpBase;
-
-      const { data: w } = await supabase
-        .from("workouts")
-        .insert({
-          user_id: userId,
-          date: dISO,
-          session_type: type,
-          template_id,
-          duration_minutes: type === "löpning" ? 32 : type === "cirkel" ? 22 : 48,
-          xp_awarded: xp,
-          had_pr: false,
-        })
-        .select()
-        .single();
-
-      if (w) {
-        if (type === "styrka") {
-          if (template_id === passA) {
-            for (let i = 1; i <= 4; i++) {
-              await supabase.from("sets").insert({ workout_id: w.id, exercise_id: squatId, set_index: i, weight: squatWeight, reps: 8 });
-              await supabase.from("sets").insert({ workout_id: w.id, exercise_id: pushId, set_index: i, weight: 0, reps: 12 });
-            }
-            squatWeight += 2.5;
-          } else {
-            for (let i = 1; i <= 4; i++) {
-              await supabase.from("sets").insert({ workout_id: w.id, exercise_id: dlId, set_index: i, weight: 90, reps: 6 });
-              await supabase.from("sets").insert({ workout_id: w.id, exercise_id: pullId, set_index: i, weight: 0, reps: 8 });
-            }
-          }
-        } else if (type === "cirkel") {
-          for (let i = 1; i <= 4; i++) {
-            await supabase.from("sets").insert({ workout_id: w.id, exercise_id: burpeeId, set_index: i, weight: 0, reps: 10 });
-            await supabase.from("sets").insert({ workout_id: w.id, exercise_id: swingId, set_index: i, weight: 16, reps: 15 });
-          }
-        } else {
-          const dist = 4 + Math.random() * 3;
-          const dur = dist * (5.5 + Math.random() * 0.7);
-          await supabase.from("running_sessions").insert({
-            workout_id: w.id,
-            distance_km: Number(dist.toFixed(2)),
-            duration_minutes: Number(dur.toFixed(1)),
-            avg_pace_seconds: Math.round((dur * 60) / dist),
-            effort_level: 6,
-          });
-        }
-      }
-
-      // Streak calc
-      if (lastDate) {
-        const prev = new Date(lastDate);
-        prev.setDate(prev.getDate() + 1);
-        streak = isoDate(prev) === dISO ? streak + 1 : 1;
-      } else {
-        streak = 1;
-      }
-      longest = Math.max(longest, streak);
-      lastDate = dISO;
-      totalXp += xp;
-      totalSessions += 1;
+    // Cascade-delete via workout_id FKs where present; explicit deletes for safety
+    const { data: ws } = await supabase.from("workouts").select("id").eq("user_id", userId);
+    const ids = (ws ?? []).map((w: any) => w.id);
+    if (ids.length > 0) {
+      await supabase.from("sets").delete().in("workout_id", ids);
+      await supabase.from("running_sessions").delete().in("workout_id", ids);
     }
-
-    // Streak as-of today: only "current" if last workout was today or yesterday
-    const todayISO = isoDate(today);
-    let currentStreak = streak;
-    if (lastDate !== todayISO) {
-      const yest = new Date(today);
-      yest.setDate(yest.getDate() - 1);
-      if (lastDate !== isoDate(yest)) currentStreak = 0;
-    }
-
-    const level = levelFromXp(totalXp);
+    await supabase.from("workouts").delete().eq("user_id", userId);
+    await supabase.from("user_achievements").delete().eq("user_id", userId);
+    await supabase.from("weekly_quests").delete().eq("user_id", userId);
+    await supabase.from("monthly_reviews").delete().eq("user_id", userId);
     await supabase.from("user_stats").upsert({
       user_id: userId,
-      total_sessions: totalSessions,
-      current_streak: currentStreak,
-      longest_streak: longest,
-      total_xp: totalXp,
-      current_level: level,
-      last_workout_date: lastDate,
+      total_sessions: 0,
+      current_streak: 0,
+      longest_streak: 0,
+      total_xp: 0,
+      current_level: 0,
+      last_workout_date: null,
     });
-
-    // Unlock a few achievements
-    const { data: ach } = await supabase.from("achievements").select("*");
-    const codesToUnlock = ["first_session", "streak_3", "first_run", "first_pr"];
-    for (const a of ach ?? []) {
-      if (codesToUnlock.includes(a.code)) {
-        await supabase
-          .from("user_achievements")
-          .upsert(
-            { user_id: userId, achievement_id: a.id, unlocked_at: new Date().toISOString(), progress: 1 },
-            { onConflict: "user_id,achievement_id" },
-          );
-      }
-    }
-
-    // Weekly quest
-    const wk = weekStartISO();
-    await supabase
-      .from("weekly_quests")
-      .upsert(
-        { user_id: userId, week_start: wk, description: "Genomför 3 pass denna vecka", target: 3, progress: 1, completed: false },
-        { onConflict: "user_id,week_start" },
-      );
-
-    return { seeded: true };
+    return { ok: true };
   });
+
+
 
 // ---------- Quick minimum session (low-motivation days) ----------
 
