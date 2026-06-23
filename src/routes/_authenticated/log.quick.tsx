@@ -22,7 +22,7 @@ function LogQuick() {
   const navigate = useNavigate();
   const mut = useLogQuickMutation();
   const { control, handleSubmit, watch, setValue, formState } = useForm<LogQuickInput>({
-    resolver: zodResolver(logQuickSchema),
+    resolver: zodResolver(logQuickSchema) as any,
     defaultValues: {
       date: todayISO(),
       session_type: "styrka",
