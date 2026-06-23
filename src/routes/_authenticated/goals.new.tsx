@@ -123,7 +123,7 @@ function NewGoal() {
     }
     if (type === "distance") return `${targetValue} km ${sessionType}`;
     if (type === "sessions") return `${targetValue} ${sessionType}-pass`;
-    if (type === "process") return `${processCount} ${sessionType}-pass per ${processPeriod === "month" ? "månad" : "vecka"}`;
+    if (type === "process") return `${processCount} ${processMetric === "km" ? "km" : sessionType + "-pass"} per ${processPeriod === "month" ? "månad" : "vecka"}`;
     return `Evenemang ${targetDate}`;
   }
 
