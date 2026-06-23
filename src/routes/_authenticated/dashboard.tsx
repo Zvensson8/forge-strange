@@ -47,10 +47,25 @@ function Dashboard() {
   const goalsFn = useServerFn(listGoalsWithProgress);
   const goalsQ = useQuery({ queryKey: ["goals"], queryFn: () => goalsFn() });
   const goals = (goalsQ.data ?? []) as GoalWithProgress[];
-  const activeGoals = goals.filter((g) => !g.completed);
+  const topLevel = goals.filter((g) => !(g as any).parent_goal_id);
+  const subsByParent = new Map<string, GoalWithProgress[]>();
+  for (const g of goals) {
+    const pid = (g as any).parent_goal_id;
+    if (pid) {
+      if (!subsByParent.has(pid)) subsByParent.set(pid, []);
+      subsByParent.get(pid)!.push(g);
+    }
+  }
+  const activeGoals = topLevel.filter((g) => !g.completed);
   const urgentEvent = activeGoals.find(
     (g) => g.goal_type === "event" && g.weeks_left !== null && g.weeks_left <= 6,
   );
+  // Trajectory: prioritera event med deadline, annars första aktiva med target_date
+  const trajectoryGoal =
+    activeGoals.find((g) => g.goal_type === "event" && g.weeks_left !== null) ??
+    activeGoals.find((g) => g.target_date) ??
+    null;
+  const riskGoals = activeGoals.filter((g) => g.pace === "behind" || g.pace === "danger").slice(0, 2);
   const reminderGoal = activeGoals.find((g) => (g as any).reminder_enabled);
 
   // In-app reminder: visa toast om man inte loggat idag och har påminnelse på
