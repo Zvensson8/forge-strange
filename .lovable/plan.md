@@ -1,124 +1,125 @@
-# Plan: Långsiktig progression, smartare review och starkare feedback
 
-Stort paket – jag bygger det i fyra sammanhängande delar så allt hänger ihop. Mörk smides-estetik och orange accent behålls. Allt på svenska.
+# Plan: Lugnare, tydligare, mer användbar Forge
 
----
+Fokus efter dina svar: **du vill veta om du är på rätt väg**, appen ska **inte kännas tom**, och UI:t ska **städas och poleras**. Vi optimerar för två stunder: **direkt efter passet** och **kvällsreflektion**.
 
-## 1. Trajectory & långsiktig progression
-
-**Dashboard – Trajectory-kort**
-- Nytt kort högst upp (under streak/level) för det mest tidskritiska aktiva målet (event närmast i tid, annars första aktiva).
-- Linjediagram: faktisk kumulativ progress vs. krävd linjär takt fram till deadline. Två linjer + en "nu"-prick.
-- Statusrad: "På rätt spår" / "Behöver öka takten" + konkret tal: *"Öka med 0,8 km/vecka"* eller *"+1,5 kg på bänkpress inom 3 veckor"*.
-
-**Compounding-vy (1 %-effekten)**
-- Liten panel på dashboard och på målsidan: *"Fortsätter du i nuvarande takt är du ~18 % starkare om 12 veckor"*.
-- Räknas från senaste 4 veckornas trend (PR-utveckling för styrkemål, snittpace/distans för uthållighet, antal pass för processmål).
-
-**Målsidan blir mer visuell**
-- Måldetaljvyn får två grafer istället för en:
-  1. Utveckling över tid mot målvärdet (finns delvis – förbättras med "krävd takt"-linje och prognoslinje).
-  2. Veckovis bidrag (stapeldiagram – hur mycket varje vecka tog dig närmare).
-- Mållista (`/goals`) får mini-sparkline per kort.
-
-**Tekniskt**
-- Ny serverfunktion `getGoalTrajectory(goalId)` → returnerar `{ actualSeries, requiredSeries, projection, weeklyDelta, requiredPace, currentPace, compoundingPct }`.
-- Beräkning sker server-side från `workouts` + `sets` + `running_sessions`.
+Inga nya features läggs till — vi tar bort, omprioriterar och poleras.
 
 ---
 
-## 2. Vecko- och månadsreview
+## 1. Dashboard: en skärm, ett budskap
 
-**Veckoreviewn utökas** (samma sida, fler sektioner från AI:n):
-- **Målstatus nu** – auto-genererad rad per aktivt mål: nuläge, krävd takt, gap.
-- **Vad fungerade / vad föll bort** – heuristik på vilka veckodagar och aktivitetstyper som fick pass (jämfört med snittet de senaste 4 veckorna).
-- **Konkreta rekommendationer för nästa vecka** – AI:n får full mål- och pace-kontext och måste ge 2–3 specifika action items (t.ex. *"Lägg in en cykelrunda 30 min på torsdag"*).
-
-**Ny månadsreview**
-- Ny route `/review/month` + knapp i veckoreview ("Se månadsöversikt").
-- Visas automatiskt som prompt på dashboard första gången användaren öppnar appen i en ny månad.
-- Innehåll: total volym per aktivitet, antal pass, alla PR:er, mål-delta (% förflyttning per mål under månaden), 4-veckors heatmap, AI-summering.
-- Cachas i ny tabell `monthly_reviews` (user_id, month_start, payload jsonb).
-
----
-
-## 3. Smartare målsystem
-
-**Delmål (sub-goals)**
-- `goals`-tabellen utökas med `parent_goal_id uuid null`.
-- I `/goals/new`: när man skapar ett mål kan man lägga till delmål direkt (t.ex. huvudmål "Halvmaraton sub 1:55" + delmål "10 km sub 55").
-- I måldetaljvy: delmål visas som checklist med egna progressbars under huvudmålet.
-
-**"Det här tog dig närmare målet"**
-- Efter loggning: success-toast/skärm som listar berörda mål och delta i procentenheter: *"Bänkpress 35×6 → +4 % mot målet 40 kg × 8 (nu 72 %)"*.
-- Visas både direkt efter logg och i historik-detaljvyn.
-
-**"Risk att missa målet"-varning**
-- När pace = `behind` eller `danger`: röd/amber banner på dashboard med konkret förslag genererat från krävd takt (samma data som Trajectory).
-- Också i veckoreviewn som egen sektion när minst ett mål är i riskzonen.
-
-**Process- vs prestationsmål**
-- Ny `goal_type = 'process'` (utöver befintliga `strength`/`distance`/`sessions`/`event`).
-- Definieras som "X pass per vecka av typ Y" eller "Logga minst Z minuter/vecka". Mäts rullande över valda veckor.
-- Visualiseras som rad med veckorutor (gröna = uppfyllda veckor) istället för stapel.
-
----
-
-## 4. Dopamin och omedelbar feedback
-
-**Stark logg-bekräftelse**
-- Ny `LogSuccess`-komponent som visas efter varje logg istället för enkel toast:
-  - XP fått + ny totalnivå (med progressbar-animation).
-  - "Wins" auto-detekterade: längsta pass på X veckor, ny PR, snabbaste pace på X veckor, första gången sedan datum, streak-milstolpe.
-  - Berörda mål med delta-procent.
-  - Knapp "Klart" som tar tillbaka till dashboard.
-
-**Streak-fara**
-- På dashboard: om streak > 0 och inget pass loggat idag, visas en amber-ruta efter kl 18:00 lokal tid: *"Träna idag för att hålla 47 dagars streak"*.
-- Vid streak ≥ 7 dagar visas faran tidigare på dagen (efter kl 12).
-
-**Små "wins" visas även på dashboard**
-- Litet "Senaste milstolpe"-kort med den nyaste auto-detekterade prestationen, så den inte bara syns vid loggning.
-
-**Tekniskt**
-- Ny hjälpare `detectWins(userId, workoutId)` som returnerar lista av wins. Körs i `logStrength`/`logDistance`/`logCircuit`/`logQuick` och returneras till klienten tillsammans med XP/level-delta.
-
----
-
-## Tekniska ändringar i korthet
+Idag är dashboarden en lista av kort (streak, XP, quest, trajectory, mål, risk-banner, snabblogga). Det blir brus. Vi gör om till en tydlig hierarki:
 
 ```text
-DB-migration:
-  - ALTER TABLE goals ADD COLUMN parent_goal_id uuid references goals
-  - ALTER TABLE goals: tillåt goal_type = 'process' + nya kolumner
-    (process_period 'week'|'month', process_target_count int)
-  - CREATE TABLE monthly_reviews (user_id, month_start, payload jsonb, ...)
-  - GRANT + RLS som vanligt
-
-Server fns (src/lib/):
-  - goals.functions.ts: + getGoalTrajectory, + computeProcessGoalProgress,
-    uppdaterad computeGoalsWithProgress (delmål, compounding)
-  - workout.functions.ts: + detectWins, returnera wins+xp+level från logg-fns,
-    uppdaterad getWeeklyReview (mål-kontext + rekommendationer),
-    + getMonthlyReview, + getDashboardTrajectory
-
-UI:
-  - src/components/forge/TrajectoryCard.tsx (nytt)
-  - src/components/forge/CompoundingBadge.tsx (nytt)
-  - src/components/forge/LogSuccess.tsx (nytt – ersätter toast efter logg)
-  - src/components/forge/StreakDangerBanner.tsx (nytt)
-  - src/components/forge/WinChip.tsx (nytt)
-  - GoalCard: + sparkline, + delmål-rendering, + process-vy
-  - Ny route src/routes/_authenticated/review.month.tsx
-  - Uppdaterade: dashboard, review, goals.$id, goals.new, alla log.*-routes
+┌─────────────────────────────────┐
+│  Hej {namn} · {dag, datum}      │  ← lugn header
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │  STATUS IDAG              │  │  ← EN tydlig mening
+│  │  "Du ligger i fas med     │  │     genererad från mål +
+│  │   ditt halvmaratonmål"    │  │     senaste 7 dagar
+│  │   ●●●○○  on track         │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  [ Logga pass ]   ← primär CTA  │
+│                                 │
+│  Aktiva mål (kompakt lista)     │
+│   • Halvmara  ▓▓▓▓▓░░  on track │
+│   • 3 pass/v  ▓▓░░░░░  1/3      │
+│                                 │
+│  Streak 0 · Nivå 1 · 0 XP       │  ← liten rad, inte hjältekort
+└─────────────────────────────────┘
 ```
+
+Konkret:
+- En **Status-rad högst upp** som sammanfattar i en mening ("Du ligger före", "Logga ett pass idag för att hålla takten", "Inga aktiva mål — sätt ett för att se framsteg"). Färgkodad prick (grön/gul/röd).
+- **Trajectory-kortet flyttas in i målet** istället för att ligga separat — du ser kurvan när du öppnar målet, inte på dashboard.
+- **Streak/XP/Nivå** krymps till en liten metarad längst ner. De är roliga men inte huvudsaken.
+- **Veckans uppdrag** flyttas till `/review` (det är reflektionsmaterial, inte action).
+- **Streak-fara-banner** behålls men bara när den faktiskt är aktuell (sen kväll + streak ≥ 3).
 
 ---
 
-## Vad jag INTE gör i denna omgång (för att hålla scope)
+## 2. Tomma vyer som hjälper istället för att gapa
 
-- Push-notiser (in-app banners räcker enligt tidigare beslut).
-- Sociala/delningsfunktioner.
-- AI-genererade träningsprogram (bara rekommendationer i review).
+När du inte har data idag möts du av "inga pass än". Vi byter ut alla tomma states mot **konkret nästa steg**:
 
-Säg till om något ska skalas ner eller delas upp i flera steg, annars kör jag hela paketet.
+- **Dashboard utan mål:** "Vad vill du uppnå? → Sätt ditt första mål" + 3 förslag (Springa 5 km, 3 pass/vecka, Marknadera i april).
+- **Dashboard utan pass:** "Logga ditt första pass — det tar 20 sekunder" + stora knappar för Löpning / Styrka / Cykel / Promenad.
+- **Historik tom:** liten illustration + "Dina pass dyker upp här. Logga ett nu."
+- **Mål tomma:** samma 3 förslag som ovan, en-tap att skapa.
+
+---
+
+## 3. Efter passet: en riktig "vinst-skärm"
+
+`/log/success` finns redan men kan kännas platt. Vi förstärker just den stunden:
+
+- Stor, tydlig rubrik: **"Klart. Bra jobbat."**
+- Tre rader, inget mer:
+  1. Vad du gjorde ("5,2 km på 28:14")
+  2. Hur det påverkade målet ("+1,2 % mot halvmaran")
+  3. En "win" om någon utlöstes ("Din längsta runda på 6 veckor 🔥")
+- En knapp: **Klar** → tillbaka till dashboard.
+- Inga XP-räknare som tickar, inga konfetti-animationer. Stillsam tillfredsställelse.
+
+---
+
+## 4. Kvällsreflektion: gör `/review` till "kvällsskärmen"
+
+Idag är `/review` blandat. Vi gör den till en lugn kvällsvy:
+
+- **Idag:** vad du loggade (eller "Vilodag — det är också träning").
+- **Veckan:** sparkline + en mening ("3 av 3 pass klara — du håller takten").
+- **Veckans uppdrag** flyttas hit.
+- **Månadsöversikt-länk** längst ner.
+
+Lägg en liten **"Reflektera"-prompt** (valfri textruta, sparas lokalt) — en mening om dagens pass. Inget krav, men finns där.
+
+---
+
+## 5. Polering av designsystem
+
+- **Lugnare typografi:** mindre fetstil överallt, mer hierarki via storlek och färg. Rubriker `font-semibold` istället för `font-black`.
+- **Mindre färg-brus:** ta bort gradient-bakgrunder på kort. Använd `bg-card` + subtil border. Spara accentfärg till statuspricken + primär CTA.
+- **Konsekvent spacing:** alla kort `p-5 rounded-2xl`, alla sektioner `space-y-4`.
+- **Bottom-nav:** 4 ikoner istället för 5 — slå ihop "Mål" och "Översikt" eller flytta en till settings. Aktiv ikon får accentfärg, inte fylld pill.
+- Allt via semantiska tokens i `src/styles.css` — inga hårdkodade färger.
+
+---
+
+## 6. Smårättningar samtidigt
+
+- Settings: gruppera "Rensa data" under en egen "Fara-zon"-rubrik så den inte ligger bredvid vanliga inställningar.
+- Historik: gruppera per vecka istället för en lång lista.
+- Goal-card: visa "krävd takt" som en mening, inte ett separat fält ("Du behöver 0,8 km/vecka till för att klara i tid").
+
+---
+
+## Tekniska detaljer
+
+- **Filer som ändras:**
+  - `src/routes/_authenticated/dashboard.tsx` — ny hierarki, ny status-rad, tomt-state.
+  - `src/routes/_authenticated/review.tsx` — kvällslayout, flytta veckans uppdrag hit.
+  - `src/components/forge/LogSuccess.tsx` — förenkla till 3 rader + en knapp.
+  - `src/components/forge/GoalCard.tsx` — bygg in mini-trajectory, krävd-takt-mening.
+  - `src/components/forge/BottomNav.tsx` — 4 ikoner, ny aktiv-style.
+  - `src/components/forge/EmptyState.tsx` (ny) — återanvändbar tomt-state med CTA.
+  - `src/lib/goals.functions.ts` — lägg till `computeStatusSummary(userId)` som returnerar `{ tone: 'good'|'warn'|'bad', message: string }`.
+  - `src/styles.css` — lugnare token-paletten, ta bort starka gradienter.
+
+- **Ingen ny databas-migration.** Inga nya server-functions utöver `computeStatusSummary`.
+- **Ingen ny dependency.**
+- **Inga ändringar i loggningsflödet** (löpning/styrka/cykel/promenad) — du sa att smärtan inte är där.
+
+---
+
+## Vad vi INTE gör nu
+
+- Ingen onboarding-wizard (kan komma senare om tomma states inte räcker).
+- Inga nya pass-typer eller mål-typer.
+- Ingen AI-coach-chat.
+- Ingen omdesign av loggningsformulären.
+
+Säg till om du vill att jag justerar omfattningen — annars bygger jag detta rakt av.

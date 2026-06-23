@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Plus, Target, Trophy, Settings as SettingsIcon } from "lucide-react";
+import { Home, Plus, Target, Moon, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; icon: typeof Home; primary?: boolean };
@@ -7,8 +7,8 @@ const items: NavItem[] = [
   { to: "/dashboard", label: "Hem", icon: Home },
   { to: "/goals", label: "Mål", icon: Target },
   { to: "/log", label: "Logga", icon: Plus, primary: true },
-  { to: "/achievements", label: "Märken", icon: Trophy },
-  { to: "/settings", label: "Profil", icon: SettingsIcon },
+  { to: "/review", label: "Kväll", icon: Moon },
+  { to: "/settings", label: "Profil", icon: User },
 ];
 
 export function BottomNav() {
@@ -18,7 +18,8 @@ export function BottomNav() {
       <div className="mx-auto flex max-w-xl items-stretch justify-around">
         {items.map((it) => {
           const Icon = it.icon;
-          const active = pathname.startsWith(it.to.split("/").slice(0, 2).join("/"));
+          const seg = it.to.split("/").slice(0, 2).join("/");
+          const active = pathname === it.to || pathname.startsWith(seg + "/");
           if (it.primary) {
             return (
               <Link
@@ -42,7 +43,7 @@ export function BottomNav() {
                 active ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className={cn("h-5 w-5", active && "drop-shadow-[0_0_6px_var(--color-primary)]")} />
               {it.label}
             </Link>
           );

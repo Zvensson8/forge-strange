@@ -1,35 +1,26 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboard } from "@/lib/workout.functions";
 import { listGoalsWithProgress } from "@/lib/goals.functions";
 import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
-import { TrajectoryCard } from "@/components/forge/TrajectoryCard";
 import { StreakDangerBanner } from "@/components/forge/StreakDangerBanner";
-import { StreakBadge } from "@/components/forge/StreakBadge";
-import { LevelBar } from "@/components/forge/LevelBar";
-import { Heatmap } from "@/components/forge/Heatmap";
+import { EmptyState, StatusPill } from "@/components/forge/EmptyState";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, Bike, Trees, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell, History as HistoryIcon, AlertTriangle, TrendingUp } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Progress } from "@/components/ui/progress";
-import { formatDateSv, formatPace } from "@/lib/forge-utils";
+import { Dumbbell, Footprints, Bike, Trees, Timer, Plus, ChevronRight, Target, History as HistoryIcon, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-type Filter = "alla" | "styrka" | "cirkel" | "löpning" | "cykling" | "promenad";
-const HEATMAP_FILTERS: Filter[] = ["alla", "styrka", "cirkel", "löpning", "cykling", "promenad"];
+export default Dashboard;
 
 function Dashboard() {
   const navigate = useNavigate();
   const getDash = useServerFn(getDashboard);
-  const [filter, setFilter] = useState<Filter>("alla");
 
   const dash = useQuery({
     queryKey: ["dashboard"],
@@ -49,15 +40,6 @@ function Dashboard() {
     }
   }
   const activeGoals = topLevel.filter((g) => !g.completed);
-  const urgentEvent = activeGoals.find(
-    (g) => g.goal_type === "event" && g.weeks_left !== null && g.weeks_left <= 6,
-  );
-  // Trajectory: prioritera event med deadline, annars första aktiva med target_date
-  const trajectoryGoal =
-    activeGoals.find((g) => g.goal_type === "event" && g.weeks_left !== null) ??
-    activeGoals.find((g) => g.target_date) ??
-    null;
-  const riskGoals = activeGoals.filter((g) => g.pace === "behind" || g.pace === "danger").slice(0, 2);
   const reminderGoal = activeGoals.find((g) => (g as any).reminder_enabled);
 
   // In-app reminder: visa toast om man inte loggat idag och har påminnelse på
@@ -76,316 +58,183 @@ function Dashboard() {
     }
   }, [dash.data, reminderGoal]);
 
-
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/auth" });
   }
 
-  const filteredHeatmap = useMemo(() => {
-    const h = dash.data?.heatmap ?? [];
-    if (filter === "alla") return h;
-    return h.filter((r: any) => r.session_type === filter);
-  }, [dash.data, filter]);
+  // Statussammanfattning — en mening
+  const status = useMemo(() => {
+    if (!dash.data) return null;
+    return computeStatus({
+      lastDate: dash.data.stats?.last_workout_date ?? null,
+      goals: activeGoals,
+    });
+  }, [dash.data, activeGoals]);
 
   if (dash.isLoading || !dash.data) {
     return <div className="py-20 text-center text-muted-foreground">Värmer upp smedjan…</div>;
   }
 
-  const { stats, profile, recent_achievements, quest, strength_series, running_series, last7 } = dash.data as any;
+  const { stats, profile } = dash.data as any;
+  const hasWorkouts = (stats?.total_sessions ?? 0) > 0;
+  const today = new Date();
+  const dateStr = today.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <div className="space-y-5">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Välkommen</p>
-          <h1 className="text-2xl font-bold">{profile?.display_name ?? "Smed"}</h1>
+      {/* Lugn header */}
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Hej</p>
+          <h1 className="truncate text-2xl font-semibold">{profile?.display_name ?? "Smed"}</h1>
+          <p className="mt-0.5 text-xs capitalize text-muted-foreground">{dateStr}</p>
         </div>
         <button
           onClick={signOut}
-          className="flex h-11 w-11 items-center justify-center rounded-full forge-gradient font-bold text-primary-foreground ember-glow"
+          aria-label="Profilmeny"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground"
         >
           {(profile?.display_name ?? "S").slice(0, 1).toUpperCase()}
         </button>
       </header>
 
-      {/* Streak + Level card */}
-      <Card className="overflow-hidden border-border bg-card p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Streak</p>
-            <div className="mt-1.5">
-              <StreakBadge days={stats?.current_streak ?? 0} large />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Längsta: <span className="font-mono font-semibold text-foreground">{stats?.longest_streak ?? 0}</span> dagar
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Totalt</p>
-            <p className="text-3xl font-bold">{stats?.total_sessions ?? 0}</p>
-            <p className="text-xs text-muted-foreground">pass</p>
-          </div>
-        </div>
-        <div className="mt-5">
-          <LevelBar xp={stats?.total_xp ?? 0} />
-        </div>
-      </Card>
-
-      {/* Streak danger - kvällsbanner */}
+      {/* Streak danger (visas bara vid faktisk risk) */}
       <StreakDangerBanner streak={stats?.current_streak ?? 0} lastDate={stats?.last_workout_date ?? null} />
 
-      {/* Trajectory - långsiktig progression */}
-      {trajectoryGoal && <TrajectoryCard goal={trajectoryGoal as any} />}
-
-      {/* Risk att missa */}
-      {riskGoals.length > 0 && (
-        <Card className="border-amber-500/40 bg-amber-500/5 p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-300" />
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-200">Mål i riskzon</p>
-          </div>
-          <div className="space-y-2">
-            {riskGoals.map((g) => (
-              <Link key={g.id} to="/goals/$id" params={{ id: g.id }} className="block rounded-md bg-amber-500/10 p-2.5 text-xs hover:bg-amber-500/20">
-                <p className="font-semibold text-amber-100">{g.title}</p>
-                <p className="mt-0.5 text-amber-200/80">
-                  {g.required_per_week && g.current_per_week !== null && g.current_per_week !== undefined
-                    ? `Krav: ${g.required_per_week} ${g.target_unit}/v · du gör ${g.current_per_week} – öka takten`
-                    : `${g.progress_pct}% – ${g.pace === "danger" ? "långt efter" : "efter"} plan`}
-                </p>
-              </Link>
-            ))}
-          </div>
+      {/* STATUS IDAG — kärnbudskapet */}
+      {status && (
+        <Card className="border-border bg-card p-5">
+          <StatusPill tone={status.tone} label={status.short} />
+          <p className="mt-2 text-base font-semibold leading-snug">{status.message}</p>
+          {status.detail && (
+            <p className="mt-1 text-xs text-muted-foreground">{status.detail}</p>
+          )}
         </Card>
       )}
 
-      {/* Primary log button → chooser */}
+      {/* Primär CTA */}
       <Link
         to="/log"
-        className="flex items-center justify-between rounded-xl border border-primary/50 bg-card p-4 transition-all hover:ember-glow"
+        className="flex items-center justify-between rounded-2xl border border-primary/40 bg-card p-5 transition-all hover:border-primary hover:ember-glow"
       >
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-full forge-gradient text-primary-foreground ember-glow">
             <Plus className="h-6 w-6" strokeWidth={2.5} />
           </span>
           <div>
-            <p className="text-base font-bold">Logga pass</p>
-            <p className="text-xs text-muted-foreground">Välj styrka, cirkel, löpning, cykel eller promenad</p>
+            <p className="text-base font-semibold">Logga pass</p>
+            <p className="text-xs text-muted-foreground">Styrka · Cirkel · Löpning · Cykel · Promenad</p>
           </div>
         </div>
         <ChevronRight className="h-5 w-5 text-muted-foreground" />
       </Link>
 
-      {/* Quick shortcuts */}
-      <div className="grid grid-cols-5 gap-2">
-        <LogShortcut to="/log/strength" icon={Dumbbell} label="Styrka" />
-        <LogShortcut to="/log/circuit" icon={Timer} label="Cirkel" />
-        <LogShortcut to="/log/running" icon={Footprints} label="Löp" />
-        <LogShortcut to="/log/cycling" icon={Bike} label="Cykel" />
-        <LogShortcut to="/log/walking" icon={Trees} label="Gå" />
-      </div>
-
-      {/* Quick minipass */}
-      <Link
-        to="/log/quick"
-        className="flex items-center justify-between rounded-xl border border-dashed border-primary/50 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
-      >
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
-            <Zap className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold">Logga minipass · 15 min</p>
-            <p className="text-xs text-muted-foreground">Räcker för full streak på låg-motivations-dagar</p>
-          </div>
-        </div>
-        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-      </Link>
-
-      {/* Goals section */}
-      {urgentEvent && (
-        <Card className="border-amber-500/50 bg-amber-500/5 p-4">
-          <div className="flex items-start gap-3">
-            <Bell className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-            <div className="flex-1">
-              <p className="text-sm font-bold text-amber-200">
-                {urgentEvent.weeks_left} {urgentEvent.weeks_left === 1 ? "vecka" : "veckor"} kvar till{" "}
-                {urgentEvent.title}
-              </p>
-              <p className="mt-0.5 text-xs text-amber-300/80">
-                Du ligger på {urgentEvent.progress_pct}% – {urgentEvent.pace === "danger" ? "långt efter" : urgentEvent.pace === "behind" ? "efter" : "i takt med"}{" "}
-                planen. Klicka för detaljer.
-              </p>
-              <Link
-                to="/goals/$id"
-                params={{ id: urgentEvent.id }}
-                className="mt-2 inline-block text-xs font-semibold text-amber-300 underline-offset-2 hover:underline"
-              >
-                Öppna mål →
-              </Link>
-            </div>
-          </div>
-        </Card>
-      )}
-
+      {/* Aktiva mål – kompakt */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            <Target className="h-4 w-4" /> Aktiva mål
+          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Target className="h-3.5 w-3.5" /> Aktiva mål
           </h2>
-          <Link to="/goals" className="text-xs font-semibold text-primary">
-            Alla →
-          </Link>
+          {activeGoals.length > 0 && (
+            <Link to="/goals" className="text-xs font-semibold text-primary">
+              Alla →
+            </Link>
+          )}
         </div>
         {activeGoals.length === 0 ? (
-          <Link
-            to="/goals/new"
-            className="flex items-center justify-between rounded-xl border border-dashed border-border bg-card/40 p-4 transition-colors hover:border-primary/50"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <Plus className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold">Sätt ditt första mål</p>
-                <p className="text-xs text-muted-foreground">Smedjan följer takten åt dig</p>
-              </div>
+          <>
+            <EmptyState
+              icon={Target}
+              title="Sätt ditt första mål"
+              description="Smedjan följer takten åt dig och visar om du är på rätt väg."
+              ctaLabel="Skapa mål"
+              ctaTo="/goals/new"
+            />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <GoalSuggestion label="Springa 5 km" sub="Distansmål" to="/goals/new?type=distance&value=5&unit=km" />
+              <GoalSuggestion label="3 pass/vecka" sub="Återkommande" to="/goals/new?type=process&value=3&period=week" />
+              <GoalSuggestion label="Halvmaraton" sub="Eventmål" to="/goals/new?type=event&value=21.1&unit=km" />
             </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </Link>
+          </>
         ) : (
-          activeGoals.slice(0, 2).map((g) => <GoalCard key={g.id} goal={g} compact subGoals={subsByParent.get(g.id) ?? []} />)
+          activeGoals.slice(0, 3).map((g) => (
+            <GoalCard key={g.id} goal={g} compact subGoals={subsByParent.get(g.id) ?? []} />
+          ))
         )}
       </section>
 
-      {/* Last 7 days */}
-      <Card className="border-border bg-card p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senaste 7 dagar</p>
-          <Link to="/history" className="flex items-center gap-1 text-xs font-semibold text-primary">
-            <HistoryIcon className="h-3 w-3" /> Historik
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
-          <Mini7 label="Totalt" value={last7?.total ?? 0} accent />
-          <Mini7 label="Styrka" value={last7?.styrka ?? 0} />
-          <Mini7 label="Cirkel" value={last7?.cirkel ?? 0} />
-          <Mini7 label="Löpning" value={last7?.löpning ?? 0} />
-          <Mini7 label="Cykling" value={last7?.cykling ?? 0} />
-          <Mini7 label="Promenad" value={last7?.promenad ?? 0} />
-        </div>
-      </Card>
-
-
-      {/* Heatmap with filters */}
-      <Card className="border-border bg-card p-5">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Aktivitet · 6 v</h2>
-        </div>
-        <div className="mb-3 flex gap-1.5 overflow-x-auto">
-          {HEATMAP_FILTERS.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors",
-                filter === f
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <Heatmap data={filteredHeatmap as any} weeks={6} />
-      </Card>
-
-      {/* Veckoreview – stor och framträdande */}
-      <Link to="/review" className="block">
-        <Card className="relative overflow-hidden border-primary/40 bg-card p-5 transition-all hover:border-primary hover:ember-glow">
-          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-          <div className="relative flex items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl forge-gradient text-primary-foreground ember-glow">
-                <Sparkles className="h-5 w-5" />
+      {/* Senaste pass / tomt-state */}
+      {!hasWorkouts ? (
+        <Card className="border border-dashed border-border bg-card/40 p-5">
+          <p className="text-sm font-semibold">Inga pass loggade än</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Logga ditt första pass — det tar 20 sekunder.
+          </p>
+          <div className="mt-4 grid grid-cols-5 gap-2">
+            <LogShortcut to="/log/strength" icon={Dumbbell} label="Styrka" />
+            <LogShortcut to="/log/circuit" icon={Timer} label="Cirkel" />
+            <LogShortcut to="/log/running" icon={Footprints} label="Löp" />
+            <LogShortcut to="/log/cycling" icon={Bike} label="Cykel" />
+            <LogShortcut to="/log/walking" icon={Trees} label="Gå" />
+          </div>
+        </Card>
+      ) : (
+        <Link to="/history" className="block">
+          <Card className="flex items-center justify-between border-border bg-card p-4 transition-colors hover:border-primary/40">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
+                <HistoryIcon className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-primary">Veckoreview</p>
-                <p className="text-base font-bold">Smedjans 3 insikter för dig</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Personlig AI-coach · uppdateras varje gång</p>
+                <p className="text-sm font-semibold">Historik</p>
+                <p className="text-xs text-muted-foreground">
+                  {stats?.total_sessions} pass loggade · senast {stats?.last_workout_date ?? "—"}
+                </p>
               </div>
             </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-primary" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Card>
+        </Link>
+      )}
+
+      {/* Kvällsreflektion */}
+      <Link to="/review" className="block">
+        <Card className="flex items-center justify-between border-border bg-card p-4 transition-colors hover:border-primary/40">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">Kvällsreflektion</p>
+              <p className="text-xs text-muted-foreground">Veckans uppdrag, insikter och reflektion</p>
+            </div>
           </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </Card>
       </Link>
 
-      {/* Weekly quest */}
-      {quest && (
-        <Card className="border-border bg-card p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">Veckans uppdrag</p>
-              <p className="mt-1 font-semibold">{quest.description}</p>
-            </div>
-            <span className="font-mono text-lg font-bold text-primary">
-              {quest.progress}/{quest.target}
-            </span>
-          </div>
-          <Progress value={(quest.progress / quest.target) * 100} className="mt-3 h-2" />
-          {quest.completed && <p className="mt-2 text-xs text-primary">Klar! Veckans glöd brinner stark.</p>}
-        </Card>
-      )}
-
-      {/* Charts */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ChartCard title="Knäböj – tyngsta vikt" series={strength_series} valueKey="value" suffix=" kg" />
-        <ChartCard
-          title="Löpning – pace (min/km)"
-          series={running_series.map((r: any) => ({ date: r.date, value: r.pace / 60 }))}
-          valueKey="value"
-          formatter={(v: number) => formatPace(v * 60)}
-          invert
-        />
+      {/* Lugn metarad längst ner */}
+      <div className="flex items-center justify-center gap-4 pt-2 text-xs text-muted-foreground">
+        <span>Streak <span className="font-mono font-semibold text-foreground">{stats?.current_streak ?? 0}</span></span>
+        <span>·</span>
+        <span>Nivå <span className="font-mono font-semibold text-foreground">{stats?.current_level ?? 0}</span></span>
+        <span>·</span>
+        <span><span className="font-mono font-semibold text-foreground">{stats?.total_xp ?? 0}</span> XP</span>
       </div>
-
-      {/* Recent achievements */}
-      {recent_achievements.length > 0 && (
-        <Card className="border-border bg-card p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Senaste märken</h2>
-            <Link to="/achievements" className="text-xs font-semibold text-primary">
-              Alla →
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {recent_achievements.map((a: any) => (
-              <div key={a.id} className="flex items-center gap-3 rounded-lg bg-muted/40 p-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-md forge-gradient text-primary-foreground">
-                  <Trophy className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">{a.name}</p>
-                  <p className="text-xs text-muted-foreground">{a.description}</p>
-                </div>
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }
 
-function Mini7({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+function GoalSuggestion({ label, sub, to }: { label: string; sub: string; to: string }) {
   return (
-    <div className={cn("rounded-lg p-2", accent ? "bg-primary/10" : "bg-muted/40")}>
-      <p className={cn("font-mono text-2xl font-bold", accent ? "text-primary" : "text-foreground")}>{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-    </div>
+    <Link
+      to={to as any}
+      className="rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/50"
+    >
+      <p className="text-sm font-semibold">{label}</p>
+      <p className="text-[11px] text-muted-foreground">{sub}</p>
+    </Link>
   );
 }
 
@@ -393,9 +242,9 @@ function LogShortcut({ to, icon: Icon, label }: { to: string; icon: any; label: 
   return (
     <Link
       to={to as any}
-      className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-3 transition-all hover:border-primary/50 hover:ember-glow"
+      className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-3 transition-all hover:border-primary/50"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg forge-gradient text-primary-foreground">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground">
         <Icon className="h-4 w-4" strokeWidth={2.5} />
       </span>
       <span className="text-[10px] font-semibold">{label}</span>
@@ -403,58 +252,72 @@ function LogShortcut({ to, icon: Icon, label }: { to: string; icon: any; label: 
   );
 }
 
-function ChartCard({
-  title,
-  series,
-  formatter,
-  suffix,
-  invert,
+// --- Status-sammanfattning -------------------------------------------------
+
+type Status = {
+  tone: "good" | "warn" | "bad" | "neutral";
+  short: string;
+  message: string;
+  detail?: string;
+};
+
+function computeStatus({
+  lastDate,
+  goals,
 }: {
-  title: string;
-  series: { date: string; value: number }[];
-  valueKey: string;
-  formatter?: (v: number) => string;
-  suffix?: string;
-  invert?: boolean;
-}) {
-  if (!series.length) {
-    return (
-      <Card className="border-border bg-card p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
-        <p className="py-6 text-center text-xs text-muted-foreground">Logga pass för att se grafen</p>
-      </Card>
-    );
+  lastDate: string | null;
+  goals: GoalWithProgress[];
+}): Status {
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const trainedToday = lastDate === todayISO;
+
+  if (!goals.length) {
+    return {
+      tone: "neutral",
+      short: "Inget mål satt",
+      message: "Sätt ett mål för att se om du är på rätt väg.",
+      detail: "Smedjan jämför din takt mot målet och säger till om du behöver öka.",
+    };
   }
-  return (
-    <Card className="border-border bg-card p-4">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
-      <div className="h-32">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={series} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-            <XAxis dataKey="date" hide />
-            <YAxis
-              domain={["auto", "auto"]}
-              reversed={invert}
-              tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
-              tickFormatter={(v) => (formatter ? formatter(v) : `${v}${suffix ?? ""}`)}
-              width={48}
-            />
-            <Tooltip
-              contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
-              formatter={(v: any) => (formatter ? formatter(v) : `${v}${suffix ?? ""}`)}
-              labelFormatter={(l) => formatDateSv(l as string)}
-            />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke="var(--color-primary)"
-              strokeWidth={2.5}
-              dot={{ r: 3, fill: "var(--color-primary)" }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
+
+  // Hitta värsta målets pace
+  const order = { danger: 0, behind: 1, on_track: 2, ahead: 3 } as const;
+  const worst = [...goals].sort((a, b) => order[a.pace] - order[b.pace])[0];
+  const best = [...goals].sort((a, b) => order[b.pace] - order[a.pace])[0];
+
+  if (worst.pace === "danger") {
+    return {
+      tone: "bad",
+      short: "Risk att missa mål",
+      message: `Du är långt efter på ${worst.title}.`,
+      detail:
+        worst.required_per_week && worst.current_per_week !== null && worst.current_per_week !== undefined
+          ? `Krav: ${worst.required_per_week} ${worst.target_unit}/v – du gör ${worst.current_per_week}. Öka takten nu.`
+          : trainedToday
+            ? "Du loggade idag – fortsätt så."
+            : "Logga ett pass idag för att komma ifatt.",
+    };
+  }
+  if (worst.pace === "behind") {
+    return {
+      tone: "warn",
+      short: "Något efter plan",
+      message: `Du behöver öka takten på ${worst.title}.`,
+      detail:
+        worst.required_per_week && worst.current_per_week !== null && worst.current_per_week !== undefined
+          ? `Öka från ${worst.current_per_week} till ${worst.required_per_week} ${worst.target_unit}/v.`
+          : "Ett pass till denna vecka räcker långt.",
+    };
+  }
+  // alla i fas eller före
+  return {
+    tone: "good",
+    short: "På rätt väg",
+    message: trainedToday
+      ? `Bra jobbat idag. Du ligger ${best.pace === "ahead" ? "före" : "i fas med"} ditt mål ${best.title}.`
+      : `Du ligger ${best.pace === "ahead" ? "före" : "i fas med"} ditt mål ${best.title}.`,
+    detail: trainedToday
+      ? undefined
+      : "Logga dagens pass för att hålla momentum.",
+  };
 }

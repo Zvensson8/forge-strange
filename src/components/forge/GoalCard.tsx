@@ -189,13 +189,11 @@ export function GoalCard({
         )}
 
         {atRisk && goal.required_per_week !== null && goal.required_per_week !== undefined && goal.current_per_week !== null && goal.current_per_week !== undefined && (
-          <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              Öka från <span className="font-mono">{goal.current_per_week}</span> till{" "}
-              <span className="font-mono font-bold">{goal.required_per_week} {goal.target_unit}/v</span> för att hinna i tid.
-            </span>
-          </div>
+          <p className="mt-2 text-[11px] leading-snug text-amber-200">
+            Du behöver{" "}
+            <span className="font-mono font-semibold">{goal.required_per_week} {goal.target_unit}/v</span>{" "}
+            för att klara målet i tid (du gör <span className="font-mono">{goal.current_per_week}</span>).
+          </p>
         )}
 
         {goal.target_date && goal.days_left !== null && !goal.completed && (

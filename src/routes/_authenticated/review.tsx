@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getWeeklyReview } from "@/lib/workout.functions";
+import { getWeeklyReview, getDashboard } from "@/lib/workout.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Flame, Trophy, Dumbbell, Footprints, Timer, TrendingUp, TrendingDown, Minus, RefreshCw, CalendarDays, AlertTriangle, Target } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { formatDateSv } from "@/lib/forge-utils";
+import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/_authenticated/review")({
   component: ReviewPage,
@@ -16,6 +17,27 @@ function ReviewPage() {
   const navigate = useNavigate();
   const fn = useServerFn(getWeeklyReview);
   const m = useMutation({ mutationFn: () => fn() });
+
+  const dashFn = useServerFn(getDashboard);
+  const dashQ = useQuery({ queryKey: ["dashboard"], queryFn: () => dashFn() });
+  const quest = (dashQ.data as any)?.quest;
+  const stats = (dashQ.data as any)?.stats;
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const trainedToday = stats?.last_workout_date === todayISO;
+
+  // Reflektion sparas lokalt
+  const reflectionKey = `forge-reflection-${todayISO}`;
+  const [reflection, setReflection] = useState("");
+  useEffect(() => {
+    try {
+      setReflection(localStorage.getItem(reflectionKey) ?? "");
+    } catch { /* noop */ }
+  }, [reflectionKey]);
+
+  function saveReflection(v: string) {
+    setReflection(v);
+    try { localStorage.setItem(reflectionKey, v); } catch { /* noop */ }
+  }
 
   useEffect(() => {
     m.mutate();
@@ -37,14 +59,52 @@ function ReviewPage() {
         <button
           onClick={() => navigate({ to: "/dashboard" })}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"
+          aria-label="Tillbaka"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Smedjans röst</p>
-          <h1 className="text-2xl font-bold">Veckoreview</h1>
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Kvällsreflektion</p>
+          <h1 className="truncate text-2xl font-semibold">Veckan & idag</h1>
         </div>
       </header>
+
+      {/* IDAG */}
+      <Card className="border-border bg-card p-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Idag</p>
+        <p className="mt-1 text-base font-semibold">
+          {trainedToday ? "Du loggade ett pass idag." : "Vilodag — det är också träning."}
+        </p>
+        <label htmlFor="reflect" className="mt-4 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          En mening om dagen (valfritt)
+        </label>
+        <textarea
+          id="reflect"
+          value={reflection}
+          onChange={(e) => saveReflection(e.target.value)}
+          placeholder="T.ex. Tunga ben men envis vilja…"
+          rows={2}
+          className="mt-1.5 w-full resize-none rounded-md border border-border bg-background p-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
+        />
+      </Card>
+
+      {/* Veckans uppdrag (flyttat hit) */}
+      {quest && (
+        <Card className="border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Veckans uppdrag</p>
+              <p className="mt-1 font-semibold">{quest.description}</p>
+            </div>
+            <span className="font-mono text-lg font-semibold text-primary">
+              {quest.progress}/{quest.target}
+            </span>
+          </div>
+          <Progress value={(quest.progress / quest.target) * 100} className="mt-3 h-2" />
+          {quest.completed && <p className="mt-2 text-xs font-semibold text-primary">Klar! Veckans glöd brinner stark.</p>}
+        </Card>
+      )}
+
 
       {/* Stora nyckeltal */}
       {s && (
