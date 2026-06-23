@@ -1131,7 +1131,8 @@ export const getWorkoutCelebration = createServerFn({ method: "GET" })
       promenad: "Promenad loggad",
     };
 
-    const run = w.running_sessions?.[0];
+    const runArr = Array.isArray((w as any).running_sessions) ? (w as any).running_sessions : (w as any).running_sessions ? [(w as any).running_sessions] : [];
+    const run = runArr[0];
     const subtitle = run
       ? `${Number(run.distance_km).toFixed(1)} km · ${Math.round(Number(run.duration_minutes))} min`
       : w.duration_minutes
