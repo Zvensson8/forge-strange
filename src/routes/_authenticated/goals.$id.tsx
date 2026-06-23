@@ -4,10 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo } from "react";
 import { deleteGoal, listGoalsWithProgress, updateGoal } from "@/lib/goals.functions";
 import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
+import { TrajectoryCard } from "@/components/forge/TrajectoryCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Trash2, CheckCircle2, Archive } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
+import { ArrowLeft, Trash2, CheckCircle2, Archive, TrendingUp } from "lucide-react";
+import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatDateSv } from "@/lib/forge-utils";
 import { toast } from "sonner";
 
@@ -24,10 +25,18 @@ function GoalDetail() {
   const delFn = useServerFn(deleteGoal);
 
   const q = useQuery({ queryKey: ["goals"], queryFn: () => fn() });
-  const goal = useMemo(
-    () => ((q.data ?? []) as (GoalWithProgress & { trend: { date: string; value: number }[] })[]).find((g) => g.id === id),
-    [q.data, id],
-  );
+  const all = (q.data ?? []) as (GoalWithProgress & {
+    trend: { date: string; value: number }[];
+    weekly_buckets?: { week: string; value: number }[];
+    required_per_week?: number | null;
+    current_per_week?: number | null;
+    projection_12w?: number | null;
+    required_series?: { date: string; value: number }[] | null;
+    today_iso?: string;
+  })[];
+  const goal = useMemo(() => all.find((g) => g.id === id), [all, id]);
+  const subGoals = useMemo(() => all.filter((g) => (g as any).parent_goal_id === id), [all, id]);
+  const hasTrajectory = goal && (goal.target_date || (goal.required_series && goal.required_series.length > 0));
 
   const completeMut = useMutation({
     mutationFn: () => updFn({ data: { id, patch: { status: "completed" } } }),
@@ -37,7 +46,6 @@ function GoalDetail() {
       navigate({ to: "/goals" });
     },
   });
-
   const archiveMut = useMutation({
     mutationFn: () => updFn({ data: { id, patch: { status: "archived" } } }),
     onSuccess: () => {
@@ -45,7 +53,6 @@ function GoalDetail() {
       navigate({ to: "/goals" });
     },
   });
-
   const delMut = useMutation({
     mutationFn: () => delFn({ data: { id } }),
     onSuccess: () => {
@@ -69,51 +76,51 @@ function GoalDetail() {
         <h1 className="text-xl font-bold">Måldetaljer</h1>
       </header>
 
-      <GoalCard goal={goal} />
+      <GoalCard goal={goal} subGoals={subGoals} />
 
-      {/* Trend */}
-      <Card className="border-border bg-card p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Utveckling mot mål
-        </p>
-        {goal.trend && goal.trend.length > 0 ? (
-          <div className="h-48">
+      {/* Trajectory */}
+      {hasTrajectory && <TrajectoryCard goal={goal as any} />}
+
+      {/* Compounding card */}
+      {goal.current_per_week !== null && goal.current_per_week !== undefined && goal.current_per_week > 0 && goal.projection_12w !== null && goal.projection_12w !== undefined && (
+        <Card className="border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
+              <TrendingUp className="h-4 w-4" />
+            </span>
+            <div className="text-sm">
+              <p className="font-bold">1%-effekten</p>
+              <p className="mt-1 text-muted-foreground">
+                Med nuvarande takt på <span className="font-mono text-foreground">{goal.current_per_week} {goal.target_unit}/v</span> är du
+                vid <span className="font-mono font-bold text-foreground">~{goal.projection_12w} {goal.target_unit}</span> om 12 veckor.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Veckovis bidrag */}
+      {goal.weekly_buckets && goal.weekly_buckets.length > 0 && (
+        <Card className="border-border bg-card p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Bidrag per vecka
+          </p>
+          <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={goal.trend} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} width={36} />
+              <BarChart data={goal.weekly_buckets} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+                <XAxis dataKey="week" tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} tickFormatter={(v) => v.slice(5)} />
+                <YAxis tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} width={32} />
                 <Tooltip
-                  contentStyle={{
-                    background: "var(--color-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelFormatter={(l) => formatDateSv(l as string)}
+                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  labelFormatter={(l) => `Vecka ${formatDateSv(l as string)}`}
                   formatter={(v: any) => `${v} ${goal.target_unit}`}
                 />
-                <ReferenceLine
-                  y={Number(goal.target_value)}
-                  stroke="var(--color-primary)"
-                  strokeDasharray="4 4"
-                  label={{ value: "Mål", fill: "var(--color-primary)", fontSize: 10, position: "right" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="var(--color-primary)"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: "var(--color-primary)" }}
-                />
-              </LineChart>
+                <Bar dataKey="value" fill="var(--color-primary)" radius={[3, 3, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
-        ) : (
-          <p className="py-8 text-center text-xs text-muted-foreground">
-            Logga relevant träning så dyker trenden upp här.
-          </p>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {/* Actions */}
       <div className="grid grid-cols-3 gap-2">

@@ -15,8 +15,17 @@ function GoalsList() {
   const q = useQuery({ queryKey: ["goals"], queryFn: () => fn() });
 
   const goals = (q.data ?? []) as GoalWithProgress[];
-  const active = goals.filter((g) => !g.completed);
-  const completed = goals.filter((g) => g.completed);
+  const topLevel = goals.filter((g) => !(g as any).parent_goal_id);
+  const subsByParent = new Map<string, GoalWithProgress[]>();
+  for (const g of goals) {
+    const pid = (g as any).parent_goal_id;
+    if (pid) {
+      if (!subsByParent.has(pid)) subsByParent.set(pid, []);
+      subsByParent.get(pid)!.push(g);
+    }
+  }
+  const active = topLevel.filter((g) => !g.completed);
+  const completed = topLevel.filter((g) => g.completed);
   const urgent = active.filter(
     (g) => g.goal_type === "event" && g.weeks_left !== null && g.weeks_left <= 6,
   );
