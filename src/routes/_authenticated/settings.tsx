@@ -19,6 +19,8 @@ function SettingsPage() {
   const navigate = useNavigate();
   const dashFn = useServerFn(getDashboard);
   const updFn = useServerFn(updateProfile);
+  const clearFn = useServerFn(clearAllMyData);
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["dashboard"], queryFn: () => dashFn() });
   const [name, setName] = useState("");
   const [w, setW] = useState<"kg" | "lb">("kg");
