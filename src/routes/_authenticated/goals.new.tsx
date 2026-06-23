@@ -63,7 +63,7 @@ function NewGoal() {
       const unit =
         type === "strength" ? "kg" :
         type === "distance" || type === "event" ? "km" :
-        type === "process" ? "pass" :
+        type === "process" ? (processMetric === "km" ? "km" : "pass") :
         "pass";
       const tv = type === "process" ? Number(processCount) : Number(targetValue);
       const created = await fn({
@@ -81,6 +81,7 @@ function NewGoal() {
           reminder_cadence: cadence,
           process_period: type === "process" ? processPeriod : null,
           process_target_count: type === "process" ? Number(processCount) : null,
+          process_metric: type === "process" ? processMetric : null,
         },
       });
       // Create sub-goals
