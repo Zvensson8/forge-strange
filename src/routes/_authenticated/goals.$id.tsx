@@ -129,7 +129,7 @@ function GoalDetail() {
         <Button
           variant="outline"
           onClick={() => completeMut.mutate()}
-          disabled={completeMut.isPending}
+          disabled={updateMut.isPending}
           className="flex-col gap-1 py-6 text-emerald-400 hover:text-emerald-300"
         >
           <CheckCircle2 className="h-4 w-4" />
@@ -138,7 +138,7 @@ function GoalDetail() {
         <Button
           variant="outline"
           onClick={() => archiveMut.mutate()}
-          disabled={archiveMut.isPending}
+          disabled={updateMut.isPending}
           className="flex-col gap-1 py-6"
         >
           <Archive className="h-4 w-4" />
@@ -149,7 +149,7 @@ function GoalDetail() {
           onClick={() => {
             if (confirm("Ta bort målet?")) delMut.mutate();
           }}
-          disabled={delMut.isPending}
+          disabled={deleteMut.isPending}
           className="flex-col gap-1 py-6 text-destructive hover:text-destructive"
         >
           <Trash2 className="h-4 w-4" />
