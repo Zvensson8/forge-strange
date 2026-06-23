@@ -78,6 +78,30 @@ function SettingsPage() {
           Spara
         </Button>
       </Card>
+      <Card className="space-y-3 border-destructive/40 bg-destructive/5 p-5">
+        <div>
+          <p className="text-sm font-bold text-destructive">Rensa all träningsdata</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tar bort alla pass, set, löprundor, achievements och nollställer XP, level och streak. Använd t.ex. för att rensa demo-data.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={async () => {
+            if (!confirm("Säker? All träningshistorik försvinner permanent.")) return;
+            try {
+              await clearFn();
+              await qc.invalidateQueries();
+              toast.success("Rensat – nu kan du börja logga från noll");
+            } catch (e: any) {
+              toast.error(e.message ?? "Kunde inte rensa");
+            }
+          }}
+        >
+          <Trash2 className="mr-2 h-4 w-4" /> Rensa all data
+        </Button>
+      </Card>
       <Button variant="outline" onClick={signOut} className="w-full">
         Logga ut
       </Button>
