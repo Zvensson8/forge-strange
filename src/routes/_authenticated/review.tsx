@@ -122,11 +122,34 @@ function ReviewPage() {
         </Card>
       )}
 
+      {/* Risk-goals direkt om de finns */}
+      {s?.goals && s.goals.filter((g: any) => g.pace === "Behöver öka" || g.pace === "Risk att missa").length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-200">Mål i riskzon</p>
+          </div>
+          <div className="space-y-1.5">
+            {s.goals
+              .filter((g: any) => g.pace === "Behöver öka" || g.pace === "Risk att missa")
+              .map((g: any) => (
+                <Link key={g.id} to="/goals/$id" params={{ id: g.id }} className="block rounded-md bg-amber-500/10 p-2 text-xs hover:bg-amber-500/20">
+                  <p className="font-semibold text-amber-100">{g.title}</p>
+                  <p className="text-amber-200/80">
+                    {g.current} / {g.target} · {g.progress_pct}%
+                    {g.weeks_left !== null && ` · ${g.weeks_left} v kvar`}
+                  </p>
+                </Link>
+              ))}
+          </div>
+        </Card>
+      )}
+
       {/* Goal status */}
       {s?.goals && s.goals.length > 0 && (
         <Card className="border-border bg-card p-5">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Status för dina mål
+          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Target className="h-3.5 w-3.5" /> Status för dina mål
           </p>
           <div className="space-y-2">
             {s.goals.map((g: any) => {
@@ -161,6 +184,22 @@ function ReviewPage() {
           </div>
         </Card>
       )}
+
+      {/* Link to monthly review */}
+      <Link to="/review/month" className="block">
+        <Card className="flex items-center justify-between border-border bg-card p-4 transition-colors hover:border-primary/40">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-bold">Månadsöversikt</p>
+              <p className="text-xs text-muted-foreground">Volym, PR:er, mål-utveckling – senaste 4 veckorna</p>
+            </div>
+          </div>
+          <TrendingUp className="h-4 w-4 text-primary" />
+        </Card>
+      </Link>
 
       {/* AI-insikter */}
       <Card className="border-primary/30 bg-card p-5">
