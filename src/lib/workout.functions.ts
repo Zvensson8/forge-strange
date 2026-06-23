@@ -549,7 +549,8 @@ export const clearAllMyData = createServerFn({ method: "POST" })
     await supabase.from("user_achievements").delete().eq("user_id", userId);
     await supabase.from("weekly_quests").delete().eq("user_id", userId);
     await supabase.from("monthly_reviews").delete().eq("user_id", userId);
-    await supabase.from("user_stats").upsert({
+    await supabase.from("user_stats").delete().eq("user_id", userId);
+    await supabase.from("user_stats").insert({
       user_id: userId,
       total_sessions: 0,
       current_streak: 0,
