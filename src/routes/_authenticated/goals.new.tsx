@@ -72,7 +72,8 @@ function NewGoal() {
         type === "distance" || type === "event" ? "km" :
         type === "process" ? (processMetric === "km" ? "km" : "pass") :
         "pass";
-      const tv = type === "process" ? Number(processCount) : Number(targetValue);
+      const rawTv = type === "process" ? Number(processCount) : Number(targetValue);
+      const tv = Number.isFinite(rawTv) && rawTv >= 0 ? rawTv : 0;
       const created = await fn({
         data: {
           title: title || autoTitle(),
