@@ -85,7 +85,7 @@ export type Database = {
           id: string
           notes: string | null
           parent_goal_id: string | null
-          process_metric: string
+          process_metric: string | null
           process_period: string | null
           process_target_count: number | null
           reminder_cadence: string | null
@@ -108,7 +108,7 @@ export type Database = {
           id?: string
           notes?: string | null
           parent_goal_id?: string | null
-          process_metric?: string
+          process_metric?: string | null
           process_period?: string | null
           process_target_count?: number | null
           reminder_cadence?: string | null
@@ -131,7 +131,7 @@ export type Database = {
           id?: string
           notes?: string | null
           parent_goal_id?: string | null
-          process_metric?: string
+          process_metric?: string | null
           process_period?: string | null
           process_target_count?: number | null
           reminder_cadence?: string | null
