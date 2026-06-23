@@ -2,14 +2,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getExercisesAndTemplates, logStrengthOrCircuit } from "@/lib/workout.functions";
+import { getExercisesAndTemplates } from "@/lib/workout.functions";
+import { useLogStrengthMutation } from "@/lib/log-mutations";
+import { logStrengthSchema } from "@/lib/types";
+import { qk } from "@/lib/query-keys";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/forge/Stepper";
 import { ArrowLeft, Plus, X, Weight } from "lucide-react";
 import { toast } from "sonner";
 import { todayISO, isBodyweightCategory } from "@/lib/forge-utils";
-import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/log/strength")({
   component: () => <LogStrengthOrCircuit kind="styrka" title="Styrkepass" />,
@@ -19,14 +21,13 @@ type SetRow = { weight: number | null; reps: number };
 
 export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel"; title: string }) {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const getEx = useServerFn(getExercisesAndTemplates);
-  const logFn = useServerFn(logStrengthOrCircuit);
+  const mut = useLogStrengthMutation();
 
-  const { data } = useQuery({ queryKey: ["exercises"], queryFn: () => getEx() });
+  const { data } = useQuery({ queryKey: qk.exercises, queryFn: () => getEx() });
   const [templateId, setTemplateId] = useState<string | "custom">("custom");
   const [picked, setPicked] = useState<{ exercise_id: string; sets: SetRow[] }[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const templates = useMemo(
     () => (data?.templates ?? []).filter((t: any) => t.session_type === kind),
@@ -60,7 +61,6 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
       ...picked,
       {
         exercise_id: exId,
-        // Default: 1 set
         sets: [{ weight: bw ? null : (ex?.category === "Underkropp" ? 40 : 20), reps: ex?.default_reps ?? 10 }],
       },
     ]);
@@ -71,34 +71,36 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
   }
 
   async function submit() {
-    if (picked.length === 0) {
-      toast.error("Lägg till minst en övning");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const setsPayload = picked.flatMap((p) =>
+    setFormError(null);
+    const payload = {
+      date: todayISO(),
+      template_id: templateId === "custom" ? null : templateId,
+      session_type: kind,
+      sets: picked.flatMap((p) =>
         p.sets.map((s, i) => ({
           exercise_id: p.exercise_id,
           set_index: i + 1,
           weight: s.weight,
           reps: s.reps,
         })),
-      );
-      const res = await logFn({
-        data: {
-          date: todayISO(),
-          template_id: templateId === "custom" ? null : templateId,
-          sets: setsPayload,
-          session_type: kind,
-        },
-      });
-      qc.invalidateQueries();
+      ),
+    };
+
+    // Client-side validation via shared schema
+    const parsed = logStrengthSchema.safeParse(payload);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      const msg = first?.message ?? "Kontrollera fälten";
+      setFormError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    try {
+      const res = await mut.mutateAsync(parsed.data);
       navigate({ to: "/log/success", search: { id: res.workout_id, leveled_up: res.leveled_up } });
-    } catch (e: any) {
-      toast.error(e.message ?? "Kunde inte spara");
-    } finally {
-      setSubmitting(false);
+    } catch {
+      /* toast in mutation */
     }
   }
 
@@ -242,12 +244,17 @@ export function LogStrengthOrCircuit({ kind, title }: { kind: "styrka" | "cirkel
 
       <div className="fixed bottom-20 left-0 right-0 z-40 px-4">
         <div className="mx-auto max-w-xl">
+          {formError && (
+            <p className="mb-2 rounded-md bg-card/95 px-3 py-2 text-center text-xs font-semibold text-destructive shadow-md">
+              {formError}
+            </p>
+          )}
           <Button
             onClick={submit}
-            disabled={submitting || picked.length === 0}
-            className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90"
+            disabled={mut.isPending || picked.length === 0}
+            className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90 disabled:opacity-50"
           >
-            {submitting ? "Sparar…" : "Spara pass"}
+            {mut.isPending ? "Sparar…" : "Spara pass"}
           </Button>
         </div>
       </div>
