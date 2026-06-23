@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { formatDateSv } from "@/lib/forge-utils";
 import { Progress } from "@/components/ui/progress";
 
-export const Route = createFileRoute("/_authenticated/review")({
+export const Route = createFileRoute("/_authenticated/review/")({
   component: ReviewPage,
 });
 

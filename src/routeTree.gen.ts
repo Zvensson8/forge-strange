@@ -13,9 +13,9 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedReviewRouteImport } from './routes/_authenticated/review'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAchievementsRouteImport } from './routes/_authenticated/achievements'
+import { Route as AuthenticatedReviewIndexRouteImport } from './routes/_authenticated/review.index'
 import { Route as AuthenticatedLogIndexRouteImport } from './routes/_authenticated/log.index'
 import { Route as AuthenticatedHistoryIndexRouteImport } from './routes/_authenticated/history.index'
 import { Route as AuthenticatedGoalsIndexRouteImport } from './routes/_authenticated/goals.index'
@@ -50,11 +50,6 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedReviewRoute = AuthenticatedReviewRouteImport.update({
-  id: '/review',
-  path: '/review',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -64,6 +59,12 @@ const AuthenticatedAchievementsRoute =
   AuthenticatedAchievementsRouteImport.update({
     id: '/achievements',
     path: '/achievements',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReviewIndexRoute =
+  AuthenticatedReviewIndexRouteImport.update({
+    id: '/review/',
+    path: '/review/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedLogIndexRoute = AuthenticatedLogIndexRouteImport.update({
@@ -84,9 +85,9 @@ const AuthenticatedGoalsIndexRoute = AuthenticatedGoalsIndexRouteImport.update({
 } as any)
 const AuthenticatedReviewMonthRoute =
   AuthenticatedReviewMonthRouteImport.update({
-    id: '/month',
-    path: '/month',
-    getParentRoute: () => AuthenticatedReviewRoute,
+    id: '/review/month',
+    path: '/review/month',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedLogWalkingRoute = AuthenticatedLogWalkingRouteImport.update({
   id: '/log/walking',
@@ -145,7 +146,6 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/achievements': typeof AuthenticatedAchievementsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/review': typeof AuthenticatedReviewRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/goals/$id': typeof AuthenticatedGoalsIdRoute
   '/goals/new': typeof AuthenticatedGoalsNewRoute
@@ -161,13 +161,13 @@ export interface FileRoutesByFullPath {
   '/goals/': typeof AuthenticatedGoalsIndexRoute
   '/history/': typeof AuthenticatedHistoryIndexRoute
   '/log/': typeof AuthenticatedLogIndexRoute
+  '/review/': typeof AuthenticatedReviewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/achievements': typeof AuthenticatedAchievementsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/review': typeof AuthenticatedReviewRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/goals/$id': typeof AuthenticatedGoalsIdRoute
   '/goals/new': typeof AuthenticatedGoalsNewRoute
@@ -183,6 +183,7 @@ export interface FileRoutesByTo {
   '/goals': typeof AuthenticatedGoalsIndexRoute
   '/history': typeof AuthenticatedHistoryIndexRoute
   '/log': typeof AuthenticatedLogIndexRoute
+  '/review': typeof AuthenticatedReviewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -191,7 +192,6 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/achievements': typeof AuthenticatedAchievementsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/review': typeof AuthenticatedReviewRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/goals/$id': typeof AuthenticatedGoalsIdRoute
   '/_authenticated/goals/new': typeof AuthenticatedGoalsNewRoute
@@ -207,6 +207,7 @@ export interface FileRoutesById {
   '/_authenticated/goals/': typeof AuthenticatedGoalsIndexRoute
   '/_authenticated/history/': typeof AuthenticatedHistoryIndexRoute
   '/_authenticated/log/': typeof AuthenticatedLogIndexRoute
+  '/_authenticated/review/': typeof AuthenticatedReviewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -215,7 +216,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/achievements'
     | '/dashboard'
-    | '/review'
     | '/settings'
     | '/goals/$id'
     | '/goals/new'
@@ -231,13 +231,13 @@ export interface FileRouteTypes {
     | '/goals/'
     | '/history/'
     | '/log/'
+    | '/review/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/achievements'
     | '/dashboard'
-    | '/review'
     | '/settings'
     | '/goals/$id'
     | '/goals/new'
@@ -253,6 +253,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/history'
     | '/log'
+    | '/review'
   id:
     | '__root__'
     | '/'
@@ -260,7 +261,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/achievements'
     | '/_authenticated/dashboard'
-    | '/_authenticated/review'
     | '/_authenticated/settings'
     | '/_authenticated/goals/$id'
     | '/_authenticated/goals/new'
@@ -276,6 +276,7 @@ export interface FileRouteTypes {
     | '/_authenticated/goals/'
     | '/_authenticated/history/'
     | '/_authenticated/log/'
+    | '/_authenticated/review/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -314,13 +315,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/review': {
-      id: '/_authenticated/review'
-      path: '/review'
-      fullPath: '/review'
-      preLoaderRoute: typeof AuthenticatedReviewRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -333,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/achievements'
       fullPath: '/achievements'
       preLoaderRoute: typeof AuthenticatedAchievementsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/review/': {
+      id: '/_authenticated/review/'
+      path: '/review'
+      fullPath: '/review/'
+      preLoaderRoute: typeof AuthenticatedReviewIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/log/': {
@@ -358,10 +359,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/review/month': {
       id: '/_authenticated/review/month'
-      path: '/month'
+      path: '/review/month'
       fullPath: '/review/month'
       preLoaderRoute: typeof AuthenticatedReviewMonthRouteImport
-      parentRoute: typeof AuthenticatedReviewRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/log/walking': {
       id: '/_authenticated/log/walking'
@@ -436,21 +437,9 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedReviewRouteChildren {
-  AuthenticatedReviewMonthRoute: typeof AuthenticatedReviewMonthRoute
-}
-
-const AuthenticatedReviewRouteChildren: AuthenticatedReviewRouteChildren = {
-  AuthenticatedReviewMonthRoute: AuthenticatedReviewMonthRoute,
-}
-
-const AuthenticatedReviewRouteWithChildren =
-  AuthenticatedReviewRoute._addFileChildren(AuthenticatedReviewRouteChildren)
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAchievementsRoute: typeof AuthenticatedAchievementsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedReviewRoute: typeof AuthenticatedReviewRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedGoalsIdRoute: typeof AuthenticatedGoalsIdRoute
   AuthenticatedGoalsNewRoute: typeof AuthenticatedGoalsNewRoute
@@ -462,15 +451,16 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLogStrengthRoute: typeof AuthenticatedLogStrengthRoute
   AuthenticatedLogSuccessRoute: typeof AuthenticatedLogSuccessRoute
   AuthenticatedLogWalkingRoute: typeof AuthenticatedLogWalkingRoute
+  AuthenticatedReviewMonthRoute: typeof AuthenticatedReviewMonthRoute
   AuthenticatedGoalsIndexRoute: typeof AuthenticatedGoalsIndexRoute
   AuthenticatedHistoryIndexRoute: typeof AuthenticatedHistoryIndexRoute
   AuthenticatedLogIndexRoute: typeof AuthenticatedLogIndexRoute
+  AuthenticatedReviewIndexRoute: typeof AuthenticatedReviewIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAchievementsRoute: AuthenticatedAchievementsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedReviewRoute: AuthenticatedReviewRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedGoalsIdRoute: AuthenticatedGoalsIdRoute,
   AuthenticatedGoalsNewRoute: AuthenticatedGoalsNewRoute,
@@ -482,9 +472,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLogStrengthRoute: AuthenticatedLogStrengthRoute,
   AuthenticatedLogSuccessRoute: AuthenticatedLogSuccessRoute,
   AuthenticatedLogWalkingRoute: AuthenticatedLogWalkingRoute,
+  AuthenticatedReviewMonthRoute: AuthenticatedReviewMonthRoute,
   AuthenticatedGoalsIndexRoute: AuthenticatedGoalsIndexRoute,
   AuthenticatedHistoryIndexRoute: AuthenticatedHistoryIndexRoute,
   AuthenticatedLogIndexRoute: AuthenticatedLogIndexRoute,
+  AuthenticatedReviewIndexRoute: AuthenticatedReviewIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
