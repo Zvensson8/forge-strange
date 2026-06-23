@@ -1,0 +1,1 @@
+ALTER TABLE public.goals ADD COLUMN IF NOT EXISTS process_metric text NOT NULL DEFAULT 'sessions' CHECK (process_metric IN ('sessions','km'));

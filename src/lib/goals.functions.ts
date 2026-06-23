@@ -19,7 +19,8 @@ const GoalInput = z.object({
   notes: z.string().optional(),
   parent_goal_id: z.string().uuid().nullable().optional(),
   process_period: z.enum(["week", "month"]).nullable().optional(),
-  process_target_count: z.number().int().positive().nullable().optional(),
+  process_target_count: z.number().positive().nullable().optional(),
+  process_metric: z.enum(["sessions", "km"]).nullable().optional(),
 });
 
 export const createGoal = createServerFn({ method: "POST" })
@@ -229,16 +230,29 @@ export async function computeGoalsWithProgress(supabase: any, userId: string) {
         currentLabel = `${count} pass`;
       }
     } else if (g.goal_type === "process") {
-      // Process goal: räkna pass per vecka av session_type (eller alla)
+      // Process goal: räkna pass (eller km) per vecka/månad av session_type (eller alla)
       const period: "week" | "month" = g.process_period === "month" ? "month" : "week";
+      const metric: "sessions" | "km" = g.process_metric === "km" ? "km" : "sessions";
       const targetPer = Number(g.process_target_count ?? g.target_value ?? 0);
       const byBucket = new Map<string, number>();
-      for (const w of workouts ?? []) {
-        if (g.session_type && w.session_type !== g.session_type) continue;
-        if (w.date < g.start_date) continue;
-        const dt = new Date(w.date);
-        const key = period === "week" ? weekStartISO(dt) : `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-01`;
-        byBucket.set(key, (byBucket.get(key) ?? 0) + 1);
+
+      if (metric === "km") {
+        for (const r of runRows ?? []) {
+          const ws = (r.workouts as any);
+          if (g.session_type && ws.session_type !== g.session_type) continue;
+          if (ws.date < g.start_date) continue;
+          const dt = new Date(ws.date);
+          const key = period === "week" ? weekStartISO(dt) : `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-01`;
+          byBucket.set(key, (byBucket.get(key) ?? 0) + Number(r.distance_km ?? 0));
+        }
+      } else {
+        for (const w of workouts ?? []) {
+          if (g.session_type && w.session_type !== g.session_type) continue;
+          if (w.date < g.start_date) continue;
+          const dt = new Date(w.date);
+          const key = period === "week" ? weekStartISO(dt) : `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-01`;
+          byBucket.set(key, (byBucket.get(key) ?? 0) + 1);
+        }
       }
       // Bygg en lista över de senaste 8 buckets
       const buckets: { key: string; count: number; hit: boolean }[] = [];
@@ -248,15 +262,18 @@ export async function computeGoalsWithProgress(supabase: any, userId: string) {
         if (period === "week") dt.setDate(dt.getDate() - i * 7);
         else dt.setMonth(dt.getMonth() - i);
         const key = period === "week" ? weekStartISO(dt) : `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-01`;
-        const c = byBucket.get(key) ?? 0;
+        const raw = byBucket.get(key) ?? 0;
+        const c = metric === "km" ? Number(raw.toFixed(1)) : raw;
         buckets.push({ key, count: c, hit: targetPer > 0 && c >= targetPer });
       }
       const currentBucket = buckets[buckets.length - 1];
       currentValue = currentBucket?.count ?? 0;
-      currentLabel = `${currentValue}/${targetPer} ${period === "week" ? "denna vecka" : "denna månad"}`;
+      const unit = metric === "km" ? "km" : "pass";
+      currentLabel = `${currentValue}/${targetPer} ${unit} ${period === "week" ? "denna vecka" : "denna månad"}`;
       // För process används en specialvy
       (g as any).process_buckets = buckets;
       (g as any).process_target_per_period = targetPer;
+      (g as any).process_metric = metric;
     }
 
     const targetVal = Number(g.target_value);

@@ -25,7 +25,7 @@ const TYPE_META: Record<GoalType, { label: string; icon: any; hint: string }> = 
   distance: { label: "Distans", icon: Footprints, hint: "Total distans inom en period" },
   sessions: { label: "Antal pass", icon: Timer, hint: "Logga ett antal pass av en viss typ" },
   event: { label: "Evenemang", icon: CalendarClock, hint: "Träna mot en deadline – lopp, race" },
-  process: { label: "Processmål", icon: Repeat, hint: "T.ex. 3 pass per vecka – håll vanan" },
+  process: { label: "Återkommande", icon: Repeat, hint: "T.ex. 3 pass eller 20 km per vecka – håll vanan" },
 };
 
 const SESSION_TYPES = ["styrka", "cirkel", "löpning", "cykling", "promenad"] as const;
@@ -49,6 +49,7 @@ function NewGoal() {
   const [cadence, setCadence] = useState<"daily" | "weekly">("weekly");
   const [processPeriod, setProcessPeriod] = useState<"week" | "month">("week");
   const [processCount, setProcessCount] = useState<string>("3");
+  const [processMetric, setProcessMetric] = useState<"sessions" | "km">("sessions");
   // Subgoals (created in second pass)
   const [subGoals, setSubGoals] = useState<{ title: string; target_value: string; goal_type: GoalType; session_type: SessionType }[]>([]);
 
@@ -62,7 +63,7 @@ function NewGoal() {
       const unit =
         type === "strength" ? "kg" :
         type === "distance" || type === "event" ? "km" :
-        type === "process" ? "pass" :
+        type === "process" ? (processMetric === "km" ? "km" : "pass") :
         "pass";
       const tv = type === "process" ? Number(processCount) : Number(targetValue);
       const created = await fn({
@@ -80,6 +81,7 @@ function NewGoal() {
           reminder_cadence: cadence,
           process_period: type === "process" ? processPeriod : null,
           process_target_count: type === "process" ? Number(processCount) : null,
+          process_metric: type === "process" ? processMetric : null,
         },
       });
       // Create sub-goals
@@ -121,7 +123,7 @@ function NewGoal() {
     }
     if (type === "distance") return `${targetValue} km ${sessionType}`;
     if (type === "sessions") return `${targetValue} ${sessionType}-pass`;
-    if (type === "process") return `${processCount} ${sessionType}-pass per ${processPeriod === "month" ? "månad" : "vecka"}`;
+    if (type === "process") return `${processCount} ${processMetric === "km" ? "km" : sessionType + "-pass"} per ${processPeriod === "month" ? "månad" : "vecka"}`;
     return `Evenemang ${targetDate}`;
   }
 
@@ -240,28 +242,59 @@ function NewGoal() {
         )}
 
         {type === "process" && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3">
             <div>
-              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Antal pass</Label>
-              <Input type="number" value={processCount} onChange={(e) => setProcessCount(e.target.value)} placeholder="3" />
-            </div>
-            <div>
-              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Per</Label>
+              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Mätning</Label>
               <div className="flex gap-2">
-                {(["week", "month"] as const).map((p) => (
+                {([
+                  { v: "sessions", label: "Antal pass" },
+                  { v: "km", label: "Total distans (km)" },
+                ] as const).map((m) => (
                   <button
-                    key={p}
-                    onClick={() => setProcessPeriod(p)}
+                    key={m.v}
+                    onClick={() => setProcessMetric(m.v)}
                     className={cn(
                       "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold",
-                      processPeriod === p
+                      processMetric === m.v
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border bg-background text-muted-foreground",
                     )}
                   >
-                    {p === "week" ? "Vecka" : "Månad"}
+                    {m.label}
                   </button>
                 ))}
+              </div>
+              {processMetric === "km" && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Räknar distans från loggade {sessionType === "styrka" || sessionType === "cirkel" ? "löp-/cykel-/promenadpass" : sessionType + "spass"}.
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
+                  {processMetric === "km" ? "Mål-km" : "Antal pass"}
+                </Label>
+                <Input type="number" inputMode="decimal" value={processCount} onChange={(e) => setProcessCount(e.target.value)} placeholder={processMetric === "km" ? "20" : "3"} />
+              </div>
+              <div>
+                <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Per</Label>
+                <div className="flex gap-2">
+                  {(["week", "month"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setProcessPeriod(p)}
+                      className={cn(
+                        "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                        processPeriod === p
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground",
+                      )}
+                    >
+                      {p === "week" ? "Vecka" : "Månad"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

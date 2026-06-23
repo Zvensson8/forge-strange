@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getDashboard, seedDemoIfEmpty } from "@/lib/workout.functions";
+import { getDashboard } from "@/lib/workout.functions";
 import { listGoalsWithProgress } from "@/lib/goals.functions";
 import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
 import { TrajectoryCard } from "@/components/forge/TrajectoryCard";
@@ -29,15 +29,7 @@ const HEATMAP_FILTERS: Filter[] = ["alla", "styrka", "cirkel", "löpning", "cykl
 function Dashboard() {
   const navigate = useNavigate();
   const getDash = useServerFn(getDashboard);
-  const seedFn = useServerFn(seedDemoIfEmpty);
   const [filter, setFilter] = useState<Filter>("alla");
-
-  const seedMut = useMutation({
-    mutationFn: () => seedFn(),
-    onSuccess: (r) => {
-      if (r.seeded) dash.refetch();
-    },
-  });
 
   const dash = useQuery({
     queryKey: ["dashboard"],
@@ -84,11 +76,6 @@ function Dashboard() {
     }
   }, [dash.data, reminderGoal]);
 
-  useEffect(() => {
-    if (dash.data && dash.data.stats.total_sessions === 0 && !seedMut.isPending && !seedMut.isSuccess) {
-      seedMut.mutate();
-    }
-  }, [dash.data, seedMut]);
 
   async function signOut() {
     await supabase.auth.signOut();

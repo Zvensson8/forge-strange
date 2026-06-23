@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,23 @@ export function Stepper({
   suffix?: string;
   className?: string;
 }) {
+  const [text, setText] = useState(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  function commit(raw: string) {
+    const cleaned = raw.replace(",", ".").trim();
+    if (cleaned === "" || isNaN(Number(cleaned))) {
+      setText(String(value));
+      return;
+    }
+    const n = Math.max(min, Number(Number(cleaned).toFixed(2)));
+    onChange(n);
+    setText(String(n));
+  }
+
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
       <Button
@@ -28,9 +46,20 @@ export function Stepper({
       >
         <Minus className="h-5 w-5" />
       </Button>
-      <div className="flex h-11 min-w-[72px] flex-1 items-center justify-center rounded-md border border-border bg-muted/40 font-mono text-lg font-semibold">
-        {value}
-        {suffix ? <span className="ml-1 text-xs font-normal text-muted-foreground">{suffix}</span> : null}
+      <div className="flex h-11 min-w-[72px] flex-1 items-center justify-center gap-1 rounded-md border border-border bg-muted/40 px-1">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          onFocus={(e) => e.target.select()}
+          className="w-full bg-transparent text-center font-mono text-lg font-semibold outline-none"
+        />
+        {suffix ? <span className="shrink-0 text-xs font-normal text-muted-foreground">{suffix}</span> : null}
       </div>
       <Button
         type="button"

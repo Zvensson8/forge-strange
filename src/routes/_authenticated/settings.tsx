@@ -1,14 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { getDashboard, updateProfile } from "@/lib/workout.functions";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getDashboard, updateProfile, clearAllMyData } from "@/lib/workout.functions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -18,6 +19,8 @@ function SettingsPage() {
   const navigate = useNavigate();
   const dashFn = useServerFn(getDashboard);
   const updFn = useServerFn(updateProfile);
+  const clearFn = useServerFn(clearAllMyData);
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["dashboard"], queryFn: () => dashFn() });
   const [name, setName] = useState("");
   const [w, setW] = useState<"kg" | "lb">("kg");
@@ -73,6 +76,30 @@ function SettingsPage() {
         </div>
         <Button onClick={save} className="w-full forge-gradient text-primary-foreground hover:opacity-90">
           Spara
+        </Button>
+      </Card>
+      <Card className="space-y-3 border-destructive/40 bg-destructive/5 p-5">
+        <div>
+          <p className="text-sm font-bold text-destructive">Rensa all träningsdata</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tar bort alla pass, set, löprundor, achievements och nollställer XP, level och streak. Använd t.ex. för att rensa demo-data.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={async () => {
+            if (!confirm("Säker? All träningshistorik försvinner permanent.")) return;
+            try {
+              await clearFn();
+              await qc.invalidateQueries();
+              toast.success("Rensat – nu kan du börja logga från noll");
+            } catch (e: any) {
+              toast.error(e.message ?? "Kunde inte rensa");
+            }
+          }}
+        >
+          <Trash2 className="mr-2 h-4 w-4" /> Rensa all data
         </Button>
       </Card>
       <Button variant="outline" onClick={signOut} className="w-full">

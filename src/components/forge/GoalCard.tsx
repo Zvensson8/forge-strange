@@ -85,11 +85,12 @@ export function GoalCard({
   subGoals?: GoalWithProgress[];
 }) {
   const pct = goal.progress_pct;
+  const processMetric = (goal as any).process_metric === "km" ? "km" : "pass";
   const targetLabel =
     goal.goal_type === "strength"
       ? `${goal.target_value} kg${goal.target_reps ? ` × ${goal.target_reps}` : ""}`
       : goal.goal_type === "process"
-        ? `${goal.process_target_per_period ?? goal.target_value} pass/${goal.process_period === "month" ? "mån" : "v"}`
+        ? `${goal.process_target_per_period ?? goal.target_value} ${processMetric}/${goal.process_period === "month" ? "mån" : "v"}`
         : `${goal.target_value} ${goal.target_unit}`;
 
   const urgent =
