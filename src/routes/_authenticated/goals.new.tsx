@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Dumbbell, Footprints, Timer, CalendarClock } from "lucide-react";
+import { ArrowLeft, Dumbbell, Footprints, Timer, CalendarClock, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@/lib/forge-utils";
@@ -18,14 +18,18 @@ export const Route = createFileRoute("/_authenticated/goals/new")({
   component: NewGoal,
 });
 
-type GoalType = "strength" | "distance" | "sessions" | "event";
+type GoalType = "strength" | "distance" | "sessions" | "event" | "process";
 
 const TYPE_META: Record<GoalType, { label: string; icon: any; hint: string }> = {
   strength: { label: "Styrka", icon: Dumbbell, hint: "Lyft en viss vikt × reps på en övning" },
-  distance: { label: "Distans", icon: Footprints, hint: "Spring en total distans inom en period" },
+  distance: { label: "Distans", icon: Footprints, hint: "Total distans inom en period" },
   sessions: { label: "Antal pass", icon: Timer, hint: "Logga ett antal pass av en viss typ" },
-  event: { label: "Evenemang", icon: CalendarClock, hint: "Träna mot en deadline – lopp, race etc." },
+  event: { label: "Evenemang", icon: CalendarClock, hint: "Träna mot en deadline – lopp, race" },
+  process: { label: "Processmål", icon: Repeat, hint: "T.ex. 3 pass per vecka – håll vanan" },
 };
+
+const SESSION_TYPES = ["styrka", "cirkel", "löpning", "cykling", "promenad"] as const;
+type SessionType = typeof SESSION_TYPES[number];
 
 function NewGoal() {
   const navigate = useNavigate();
@@ -39,10 +43,14 @@ function NewGoal() {
   const [exerciseId, setExerciseId] = useState<string>("");
   const [targetValue, setTargetValue] = useState<string>("");
   const [targetReps, setTargetReps] = useState<string>("5");
-  const [sessionType, setSessionType] = useState<"styrka" | "cirkel" | "löpning">("löpning");
+  const [sessionType, setSessionType] = useState<SessionType>("löpning");
   const [targetDate, setTargetDate] = useState<string>("");
   const [reminder, setReminder] = useState(false);
   const [cadence, setCadence] = useState<"daily" | "weekly">("weekly");
+  const [processPeriod, setProcessPeriod] = useState<"week" | "month">("week");
+  const [processCount, setProcessCount] = useState<string>("3");
+  // Subgoals (created in second pass)
+  const [subGoals, setSubGoals] = useState<{ title: string; target_value: string; goal_type: GoalType; session_type: SessionType }[]>([]);
 
   const weightExercises = useMemo(
     () => (ex.data?.exercises ?? []).filter((e: any) => !["Cirkel", "Core"].includes(e.category)),
@@ -50,14 +58,18 @@ function NewGoal() {
   );
 
   const mut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const unit =
-        type === "strength" ? "kg" : type === "distance" || type === "event" ? "km" : "pass";
-      return fn({
+        type === "strength" ? "kg" :
+        type === "distance" || type === "event" ? "km" :
+        type === "process" ? "pass" :
+        "pass";
+      const tv = type === "process" ? Number(processCount) : Number(targetValue);
+      const created = await fn({
         data: {
           title: title || autoTitle(),
           goal_type: type,
-          target_value: Number(targetValue),
+          target_value: tv,
           target_unit: unit,
           target_reps: type === "strength" ? Number(targetReps) : null,
           exercise_id: type === "strength" ? exerciseId || null : null,
@@ -66,8 +78,32 @@ function NewGoal() {
           start_date: todayISO(),
           reminder_enabled: reminder,
           reminder_cadence: cadence,
+          process_period: type === "process" ? processPeriod : null,
+          process_target_count: type === "process" ? Number(processCount) : null,
         },
       });
+      // Create sub-goals
+      for (const sg of subGoals) {
+        if (!sg.title || !sg.target_value) continue;
+        const sgUnit = sg.goal_type === "strength" ? "kg" : sg.goal_type === "distance" ? "km" : "pass";
+        await fn({
+          data: {
+            title: sg.title,
+            goal_type: sg.goal_type,
+            target_value: Number(sg.target_value),
+            target_unit: sgUnit,
+            target_reps: null,
+            exercise_id: null,
+            session_type: sg.goal_type === "strength" ? null : sg.session_type,
+            target_date: targetDate || null,
+            start_date: todayISO(),
+            reminder_enabled: false,
+            reminder_cadence: "weekly",
+            parent_goal_id: (created as any).id,
+          },
+        });
+      }
+      return created;
     },
     onSuccess: () => {
       toast.success("Mål skapat – nu smider vi mot det");
@@ -85,11 +121,12 @@ function NewGoal() {
     }
     if (type === "distance") return `${targetValue} km ${sessionType}`;
     if (type === "sessions") return `${targetValue} ${sessionType}-pass`;
+    if (type === "process") return `${processCount} ${sessionType}-pass per ${processPeriod === "month" ? "månad" : "vecka"}`;
     return `Evenemang ${targetDate}`;
   }
 
   const canSave =
-    Number(targetValue) > 0 &&
+    (type === "process" ? Number(processCount) > 0 : Number(targetValue) > 0) &&
     (type !== "strength" || exerciseId) &&
     (type !== "event" || targetDate);
 
@@ -134,7 +171,7 @@ function NewGoal() {
       <Card className="space-y-4 border-border bg-card p-4">
         <div>
           <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Titel (valfri)</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="t.ex. Knäböj 100 kg × 5" />
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="t.ex. Halvmaraton sub 1:55" />
         </div>
 
         {type === "strength" && (
@@ -148,9 +185,7 @@ function NewGoal() {
               >
                 <option value="">Välj övning…</option>
                 {weightExercises.map((e: any) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
+                  <option key={e.id} value={e.id}>{e.name}</option>
                 ))}
               </select>
             </div>
@@ -167,16 +202,16 @@ function NewGoal() {
           </>
         )}
 
-        {type !== "strength" && (
+        {(type !== "strength") && (
           <div>
             <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Passtyp</Label>
-            <div className="flex gap-2">
-              {(["styrka", "cirkel", "löpning"] as const).map((s) => (
+            <div className="flex flex-wrap gap-2">
+              {SESSION_TYPES.map((s) => (
                 <button
                   key={s}
                   onClick={() => setSessionType(s)}
                   className={cn(
-                    "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold capitalize",
+                    "rounded-full border px-3 py-1.5 text-xs font-semibold capitalize",
                     sessionType === s
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-muted-foreground",
@@ -189,7 +224,7 @@ function NewGoal() {
           </div>
         )}
 
-        {type !== "strength" && (
+        {(type === "distance" || type === "sessions" || type === "event") && (
           <div>
             <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
               {type === "sessions" ? "Antal pass" : "Mål-distans (km)"}
@@ -201,6 +236,34 @@ function NewGoal() {
               onChange={(e) => setTargetValue(e.target.value)}
               placeholder={type === "sessions" ? "12" : "21.1"}
             />
+          </div>
+        )}
+
+        {type === "process" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Antal pass</Label>
+              <Input type="number" value={processCount} onChange={(e) => setProcessCount(e.target.value)} placeholder="3" />
+            </div>
+            <div>
+              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Per</Label>
+              <div className="flex gap-2">
+                {(["week", "month"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setProcessPeriod(p)}
+                    className={cn(
+                      "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                      processPeriod === p
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground",
+                    )}
+                  >
+                    {p === "week" ? "Vecka" : "Månad"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -241,6 +304,70 @@ function NewGoal() {
           )}
         </div>
       </Card>
+
+      {/* Sub-goals */}
+      {type !== "process" && (
+        <Card className="space-y-3 border-border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold">Delmål (valfritt)</p>
+              <p className="text-xs text-muted-foreground">Bryt ner stora mål – t.ex. "10 km sub 55 min" mot halvmaraton</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setSubGoals([...subGoals, { title: "", target_value: "", goal_type: "distance", session_type: "löpning" }])
+              }
+            >
+              + Lägg till
+            </Button>
+          </div>
+          {subGoals.map((sg, i) => (
+            <div key={i} className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+              <Input
+                placeholder="Delmål-titel"
+                value={sg.title}
+                onChange={(e) => {
+                  const next = [...subGoals];
+                  next[i].title = e.target.value;
+                  setSubGoals(next);
+                }}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={sg.goal_type}
+                  onChange={(e) => {
+                    const next = [...subGoals];
+                    next[i].goal_type = e.target.value as GoalType;
+                    setSubGoals(next);
+                  }}
+                  className="h-10 rounded-md border border-border bg-background px-2 text-xs"
+                >
+                  <option value="distance">Distans (km)</option>
+                  <option value="sessions">Antal pass</option>
+                </select>
+                <Input
+                  type="number"
+                  placeholder="Mål"
+                  value={sg.target_value}
+                  onChange={(e) => {
+                    const next = [...subGoals];
+                    next[i].target_value = e.target.value;
+                    setSubGoals(next);
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => setSubGoals(subGoals.filter((_, j) => j !== i))}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                Ta bort
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <div className="fixed bottom-20 left-0 right-0 z-40 px-4">
         <div className="mx-auto max-w-xl">
