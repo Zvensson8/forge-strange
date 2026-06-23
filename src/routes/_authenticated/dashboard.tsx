@@ -5,11 +5,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { getDashboard, seedDemoIfEmpty } from "@/lib/workout.functions";
 import { listGoalsWithProgress } from "@/lib/goals.functions";
 import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
+import { TrajectoryCard } from "@/components/forge/TrajectoryCard";
+import { StreakDangerBanner } from "@/components/forge/StreakDangerBanner";
 import { StreakBadge } from "@/components/forge/StreakBadge";
 import { LevelBar } from "@/components/forge/LevelBar";
 import { Heatmap } from "@/components/forge/Heatmap";
 import { Card } from "@/components/ui/card";
-import { Dumbbell, Timer, Footprints, Bike, Trees, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell, History as HistoryIcon } from "lucide-react";
+import { Dumbbell, Timer, Footprints, Bike, Trees, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell, History as HistoryIcon, AlertTriangle, TrendingUp } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { formatDateSv, formatPace } from "@/lib/forge-utils";
@@ -45,10 +47,25 @@ function Dashboard() {
   const goalsFn = useServerFn(listGoalsWithProgress);
   const goalsQ = useQuery({ queryKey: ["goals"], queryFn: () => goalsFn() });
   const goals = (goalsQ.data ?? []) as GoalWithProgress[];
-  const activeGoals = goals.filter((g) => !g.completed);
+  const topLevel = goals.filter((g) => !(g as any).parent_goal_id);
+  const subsByParent = new Map<string, GoalWithProgress[]>();
+  for (const g of goals) {
+    const pid = (g as any).parent_goal_id;
+    if (pid) {
+      if (!subsByParent.has(pid)) subsByParent.set(pid, []);
+      subsByParent.get(pid)!.push(g);
+    }
+  }
+  const activeGoals = topLevel.filter((g) => !g.completed);
   const urgentEvent = activeGoals.find(
     (g) => g.goal_type === "event" && g.weeks_left !== null && g.weeks_left <= 6,
   );
+  // Trajectory: prioritera event med deadline, annars första aktiva med target_date
+  const trajectoryGoal =
+    activeGoals.find((g) => g.goal_type === "event" && g.weeks_left !== null) ??
+    activeGoals.find((g) => g.target_date) ??
+    null;
+  const riskGoals = activeGoals.filter((g) => g.pace === "behind" || g.pace === "danger").slice(0, 2);
   const reminderGoal = activeGoals.find((g) => (g as any).reminder_enabled);
 
   // In-app reminder: visa toast om man inte loggat idag och har påminnelse på
@@ -127,6 +144,34 @@ function Dashboard() {
           <LevelBar xp={stats?.total_xp ?? 0} />
         </div>
       </Card>
+
+      {/* Streak danger - kvällsbanner */}
+      <StreakDangerBanner streak={stats?.current_streak ?? 0} lastDate={stats?.last_workout_date ?? null} />
+
+      {/* Trajectory - långsiktig progression */}
+      {trajectoryGoal && <TrajectoryCard goal={trajectoryGoal as any} />}
+
+      {/* Risk att missa */}
+      {riskGoals.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-200">Mål i riskzon</p>
+          </div>
+          <div className="space-y-2">
+            {riskGoals.map((g) => (
+              <Link key={g.id} to="/goals/$id" params={{ id: g.id }} className="block rounded-md bg-amber-500/10 p-2.5 text-xs hover:bg-amber-500/20">
+                <p className="font-semibold text-amber-100">{g.title}</p>
+                <p className="mt-0.5 text-amber-200/80">
+                  {g.required_per_week && g.current_per_week !== null && g.current_per_week !== undefined
+                    ? `Krav: ${g.required_per_week} ${g.target_unit}/v · du gör ${g.current_per_week} – öka takten`
+                    : `${g.progress_pct}% – ${g.pace === "danger" ? "långt efter" : "efter"} plan`}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Primary log button → chooser */}
       <Link
@@ -223,7 +268,7 @@ function Dashboard() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </Link>
         ) : (
-          activeGoals.slice(0, 2).map((g) => <GoalCard key={g.id} goal={g} compact />)
+          activeGoals.slice(0, 2).map((g) => <GoalCard key={g.id} goal={g} compact subGoals={subsByParent.get(g.id) ?? []} />)
         )}
       </section>
 

@@ -15,8 +15,17 @@ function GoalsList() {
   const q = useQuery({ queryKey: ["goals"], queryFn: () => fn() });
 
   const goals = (q.data ?? []) as GoalWithProgress[];
-  const active = goals.filter((g) => !g.completed);
-  const completed = goals.filter((g) => g.completed);
+  const topLevel = goals.filter((g) => !(g as any).parent_goal_id);
+  const subsByParent = new Map<string, GoalWithProgress[]>();
+  for (const g of goals) {
+    const pid = (g as any).parent_goal_id;
+    if (pid) {
+      if (!subsByParent.has(pid)) subsByParent.set(pid, []);
+      subsByParent.get(pid)!.push(g);
+    }
+  }
+  const active = topLevel.filter((g) => !g.completed);
+  const completed = topLevel.filter((g) => g.completed);
   const urgent = active.filter(
     (g) => g.goal_type === "event" && g.weeks_left !== null && g.weeks_left <= 6,
   );
@@ -75,7 +84,7 @@ function GoalsList() {
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktiva</p>
           {active.map((g) => (
-            <GoalCard key={g.id} goal={g} />
+            <GoalCard key={g.id} goal={g} subGoals={subsByParent.get(g.id) ?? []} />
           ))}
         </div>
       )}
@@ -84,7 +93,7 @@ function GoalsList() {
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Klart</p>
           {completed.map((g) => (
-            <GoalCard key={g.id} goal={g} compact />
+            <GoalCard key={g.id} goal={g} compact subGoals={subsByParent.get(g.id) ?? []} />
           ))}
         </div>
       )}

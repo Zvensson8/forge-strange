@@ -84,6 +84,9 @@ export type Database = {
           goal_type: string
           id: string
           notes: string | null
+          parent_goal_id: string | null
+          process_period: string | null
+          process_target_count: number | null
           reminder_cadence: string | null
           reminder_enabled: boolean
           session_type: string | null
@@ -103,6 +106,9 @@ export type Database = {
           goal_type: string
           id?: string
           notes?: string | null
+          parent_goal_id?: string | null
+          process_period?: string | null
+          process_target_count?: number | null
           reminder_cadence?: string | null
           reminder_enabled?: boolean
           session_type?: string | null
@@ -122,6 +128,9 @@ export type Database = {
           goal_type?: string
           id?: string
           notes?: string | null
+          parent_goal_id?: string | null
+          process_period?: string | null
+          process_target_count?: number | null
           reminder_cadence?: string | null
           reminder_enabled?: boolean
           session_type?: string | null
@@ -143,7 +152,44 @@ export type Database = {
             referencedRelation: "exercises"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "goals_parent_goal_id_fkey"
+            columns: ["parent_goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      monthly_reviews: {
+        Row: {
+          created_at: string
+          id: string
+          insights: string | null
+          month_start: string
+          payload: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          insights?: string | null
+          month_start: string
+          payload: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          insights?: string | null
+          month_start?: string
+          payload?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
