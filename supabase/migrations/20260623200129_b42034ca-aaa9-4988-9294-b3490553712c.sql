@@ -1,0 +1,1 @@
+ALTER TABLE public.goals ALTER COLUMN process_metric DROP NOT NULL;
