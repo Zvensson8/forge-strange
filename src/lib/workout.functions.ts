@@ -199,6 +199,8 @@ async function updateStatsAndAchievements(
 
 // ---------- Server functions ----------
 
+import { logStrengthSchema, logDistanceSchema, logQuickSchema } from "@/lib/types";
+
 const StrengthSet = z.object({
   exercise_id: z.string().uuid(),
   set_index: z.number().int().min(1),
@@ -207,14 +209,7 @@ const StrengthSet = z.object({
   rpe: z.number().nullable().optional(),
 });
 
-const LogStrengthInput = z.object({
-  date: z.string().regex(ISO_DATE_RE),
-  template_id: z.string().uuid().nullable().optional(),
-  notes: z.string().optional(),
-  duration_minutes: z.number().int().nullable().optional(),
-  sets: z.array(StrengthSet).min(1),
-  session_type: z.enum(["styrka", "cirkel"]).default("styrka"),
-});
+const LogStrengthInput = logStrengthSchema;
 
 export const logStrengthOrCircuit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
