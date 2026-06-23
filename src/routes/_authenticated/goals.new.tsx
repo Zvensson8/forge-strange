@@ -425,10 +425,15 @@ function NewGoal() {
 
       <div className="fixed bottom-20 left-0 right-0 z-40 px-4">
         <div className="mx-auto max-w-xl">
+          {disabledReason && (
+            <p className="mb-2 rounded-md bg-card/95 px-3 py-2 text-center text-xs font-semibold text-amber-300 shadow-md">
+              {disabledReason} för att kunna spara
+            </p>
+          )}
           <Button
             onClick={() => mut.mutate()}
             disabled={!canSave || mut.isPending}
-            className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90"
+            className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90 disabled:opacity-50"
           >
             {mut.isPending ? "Sparar…" : "Skapa mål"}
           </Button>
