@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo } from "react";
-import { deleteGoal, listGoalsWithProgress, updateGoal } from "@/lib/goals.functions";
+import { listGoalsWithProgress } from "@/lib/goals.functions";
+import { useDeleteGoalMutation, useUpdateGoalMutation } from "@/lib/goal-mutations";
+import { qk } from "@/lib/query-keys";
 import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
 import { TrajectoryCard } from "@/components/forge/TrajectoryCard";
 import { Card } from "@/components/ui/card";
@@ -19,12 +21,9 @@ export const Route = createFileRoute("/_authenticated/goals/$id")({
 function GoalDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const fn = useServerFn(listGoalsWithProgress);
-  const updFn = useServerFn(updateGoal);
-  const delFn = useServerFn(deleteGoal);
 
-  const q = useQuery({ queryKey: ["goals"], queryFn: () => fn() });
+  const q = useQuery({ queryKey: qk.goals, queryFn: () => fn() });
   const all = (q.data ?? []) as (GoalWithProgress & {
     trend: { date: string; value: number }[];
     weekly_buckets?: { week: string; value: number }[];
@@ -38,28 +37,31 @@ function GoalDetail() {
   const subGoals = useMemo(() => all.filter((g) => (g as any).parent_goal_id === id), [all, id]);
   const hasTrajectory = goal && (goal.target_date || (goal.required_series && goal.required_series.length > 0));
 
-  const completeMut = useMutation({
-    mutationFn: () => updFn({ data: { id, patch: { status: "completed" } } }),
-    onSuccess: () => {
-      toast.success("Mål markerat som klart!");
-      qc.invalidateQueries({ queryKey: ["goals"] });
-      navigate({ to: "/goals" });
-    },
-  });
-  const archiveMut = useMutation({
-    mutationFn: () => updFn({ data: { id, patch: { status: "archived" } } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["goals"] });
-      navigate({ to: "/goals" });
-    },
-  });
-  const delMut = useMutation({
-    mutationFn: () => delFn({ data: { id } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["goals"] });
-      navigate({ to: "/goals" });
-    },
-  });
+  const updateMut = useUpdateGoalMutation();
+  const deleteMut = useDeleteGoalMutation();
+
+  const completeMut = {
+    mutate: () =>
+      updateMut.mutate(
+        { id, patch: { status: "completed" } },
+        {
+          onSuccess: () => {
+            toast.success("Mål markerat som klart!");
+            navigate({ to: "/goals" });
+          },
+        },
+      ),
+  };
+  const archiveMut = {
+    mutate: () =>
+      updateMut.mutate(
+        { id, patch: { status: "archived" } },
+        { onSuccess: () => navigate({ to: "/goals" }) },
+      ),
+  };
+  const delMut = {
+    mutate: () => deleteMut.mutate({ id }, { onSuccess: () => navigate({ to: "/goals" }) }),
+  };
 
   if (q.isLoading) return <p className="py-20 text-center text-muted-foreground">Laddar…</p>;
   if (!goal) return <p className="py-20 text-center text-muted-foreground">Målet hittades inte.</p>;
