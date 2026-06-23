@@ -16,6 +16,12 @@ import { todayISO } from "@/lib/forge-utils";
 
 export const Route = createFileRoute("/_authenticated/goals/new")({
   component: NewGoal,
+  validateSearch: (s: Record<string, unknown>) => ({
+    type: (s.type as GoalType) || undefined,
+    value: typeof s.value === "string" ? s.value : undefined,
+    unit: typeof s.unit === "string" ? s.unit : undefined,
+    period: (s.period as "week" | "month") || undefined,
+  }),
 });
 
 type GoalType = "strength" | "distance" | "sessions" | "event" | "process";
