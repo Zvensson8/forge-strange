@@ -554,13 +554,7 @@ export const clearAllMyData = createServerFn({ method: "POST" })
 
 // ---------- Quick minimum session (low-motivation days) ----------
 
-const LogQuickInput = z.object({
-  date: z.string().regex(ISO_DATE_RE),
-  session_type: z.enum(["styrka", "cirkel", "löpning"]),
-  duration_minutes: z.number().int().min(5).max(60).default(15),
-  energy_level: z.number().int().min(1).max(10).optional(),
-  notes: z.string().optional(),
-});
+const LogQuickInput = logQuickSchema;
 
 export const logQuickSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
