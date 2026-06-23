@@ -40,11 +40,7 @@ function LogQuick() {
         },
       });
       qc.invalidateQueries();
-      toast.success(`Minipass loggat · +${res.xp_gained} XP`, {
-        description: `Streak ${res.streak} 🔥 ${res.leveled_up ? `· Forge Level ${res.new_level}!` : "· Du höll glöden vid liv"}`,
-      });
-      for (const a of res.unlocked_achievements) toast(a.name, { description: "Märke upplåst" });
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/log/success", search: { id: res.workout_id, leveled_up: res.leveled_up } });
     } catch (e: any) {
       toast.error(e.message ?? "Kunde inte spara");
     } finally {
