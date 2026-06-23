@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getDashboard, seedDemoIfEmpty } from "@/lib/workout.functions";
+import { getDashboard } from "@/lib/workout.functions";
 import { listGoalsWithProgress } from "@/lib/goals.functions";
 import { GoalCard, type GoalWithProgress } from "@/components/forge/GoalCard";
 import { TrajectoryCard } from "@/components/forge/TrajectoryCard";
