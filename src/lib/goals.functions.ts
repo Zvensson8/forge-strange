@@ -52,7 +52,7 @@ export const updateGoal = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { error } = await supabase
       .from("goals")
-      .update(data.patch)
+      .update(data.patch as any)
       .eq("id", data.id)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
