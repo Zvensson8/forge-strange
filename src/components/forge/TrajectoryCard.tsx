@@ -11,6 +11,7 @@ type Trajectory = GoalWithProgress & {
   required_per_week?: number | null;
   current_per_week?: number | null;
   projection_12w?: number | null;
+  today_iso?: string;
 };
 
 export function TrajectoryCard({ goal }: { goal: Trajectory }) {
