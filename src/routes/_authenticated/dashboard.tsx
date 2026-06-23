@@ -218,7 +218,7 @@ function Dashboard() {
       <div className="flex items-center justify-center gap-4 pt-2 text-xs text-muted-foreground">
         <span>Streak <span className="font-mono font-semibold text-foreground">{stats?.current_streak ?? 0}</span></span>
         <span>·</span>
-        <span>Nivå <span className="font-mono font-semibold text-foreground">{stats?.level ?? 1}</span></span>
+        <span>Nivå <span className="font-mono font-semibold text-foreground">{stats?.current_level ?? 0}</span></span>
         <span>·</span>
         <span><span className="font-mono font-semibold text-foreground">{stats?.total_xp ?? 0}</span> XP</span>
       </div>
