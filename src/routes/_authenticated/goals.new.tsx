@@ -242,28 +242,59 @@ function NewGoal() {
         )}
 
         {type === "process" && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3">
             <div>
-              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Antal pass</Label>
-              <Input type="number" value={processCount} onChange={(e) => setProcessCount(e.target.value)} placeholder="3" />
-            </div>
-            <div>
-              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Per</Label>
+              <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Mätning</Label>
               <div className="flex gap-2">
-                {(["week", "month"] as const).map((p) => (
+                {([
+                  { v: "sessions", label: "Antal pass" },
+                  { v: "km", label: "Total distans (km)" },
+                ] as const).map((m) => (
                   <button
-                    key={p}
-                    onClick={() => setProcessPeriod(p)}
+                    key={m.v}
+                    onClick={() => setProcessMetric(m.v)}
                     className={cn(
                       "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold",
-                      processPeriod === p
+                      processMetric === m.v
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border bg-background text-muted-foreground",
                     )}
                   >
-                    {p === "week" ? "Vecka" : "Månad"}
+                    {m.label}
                   </button>
                 ))}
+              </div>
+              {processMetric === "km" && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Räknar distans från loggade {sessionType === "styrka" || sessionType === "cirkel" ? "löp-/cykel-/promenadpass" : sessionType + "spass"}.
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
+                  {processMetric === "km" ? "Mål-km" : "Antal pass"}
+                </Label>
+                <Input type="number" inputMode="decimal" value={processCount} onChange={(e) => setProcessCount(e.target.value)} placeholder={processMetric === "km" ? "20" : "3"} />
+              </div>
+              <div>
+                <Label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Per</Label>
+                <div className="flex gap-2">
+                  {(["week", "month"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setProcessPeriod(p)}
+                      className={cn(
+                        "flex-1 rounded-full border px-3 py-1.5 text-xs font-semibold",
+                        processPeriod === p
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground",
+                      )}
+                    >
+                      {p === "week" ? "Vecka" : "Månad"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
