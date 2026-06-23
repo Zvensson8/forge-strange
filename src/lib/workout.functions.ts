@@ -291,14 +291,7 @@ export const logStrengthOrCircuit = createServerFn({ method: "POST" })
     };
   });
 
-const LogDistanceInput = z.object({
-  date: z.string().regex(ISO_DATE_RE),
-  session_type: z.enum(["löpning", "cykling", "promenad"]).default("löpning"),
-  distance_km: z.number().positive(),
-  duration_minutes: z.number().positive(),
-  effort_level: z.number().int().min(1).max(10).optional(),
-  route_notes: z.string().optional(),
-});
+const LogDistanceInput = logDistanceSchema;
 
 export const logRunning = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
