@@ -19,7 +19,8 @@ const GoalInput = z.object({
   notes: z.string().optional(),
   parent_goal_id: z.string().uuid().nullable().optional(),
   process_period: z.enum(["week", "month"]).nullable().optional(),
-  process_target_count: z.number().int().positive().nullable().optional(),
+  process_target_count: z.number().positive().nullable().optional(),
+  process_metric: z.enum(["sessions", "km"]).nullable().optional(),
 });
 
 export const createGoal = createServerFn({ method: "POST" })
