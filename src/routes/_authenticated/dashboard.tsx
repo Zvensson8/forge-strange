@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Dumbbell, Timer, Footprints, Bike, Trees, Trophy, Sparkles, Zap, ChevronRight, Target, Plus, Bell, History as HistoryIcon, AlertTriangle, TrendingUp } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
-import { formatPace } from "@/lib/forge-utils";
+import { formatDateSv, formatPace } from "@/lib/forge-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
