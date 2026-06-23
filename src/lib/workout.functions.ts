@@ -1252,7 +1252,7 @@ export const getMonthlyReview = createServerFn({ method: "POST" })
 
     // Cacha (best-effort)
     try {
-      await supabase
+      await (supabase as any)
         .from("monthly_reviews")
         .upsert({ user_id: userId, month_start: msISO, payload: summary, insights }, { onConflict: "user_id,month_start" });
     } catch {
