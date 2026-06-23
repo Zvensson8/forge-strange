@@ -16,6 +16,12 @@ import { todayISO } from "@/lib/forge-utils";
 
 export const Route = createFileRoute("/_authenticated/goals/new")({
   component: NewGoal,
+  validateSearch: (s: Record<string, unknown>) => ({
+    type: (s.type as GoalType) || undefined,
+    value: typeof s.value === "string" ? s.value : undefined,
+    unit: typeof s.unit === "string" ? s.unit : undefined,
+    period: (s.period as "week" | "month") || undefined,
+  }),
 });
 
 type GoalType = "strength" | "distance" | "sessions" | "event" | "process";
@@ -38,18 +44,19 @@ function NewGoal() {
   const fn = useServerFn(createGoal);
   const ex = useQuery({ queryKey: ["exercises"], queryFn: () => getEx() });
 
-  const [type, setType] = useState<GoalType>("strength");
+  const search = Route.useSearch();
+  const [type, setType] = useState<GoalType>(search.type ?? "strength");
   const [title, setTitle] = useState("");
   const [exerciseId, setExerciseId] = useState<string>("");
-  const [targetValue, setTargetValue] = useState<string>("");
+  const [targetValue, setTargetValue] = useState<string>(search.value ?? "");
   const [targetReps, setTargetReps] = useState<string>("5");
   const [sessionType, setSessionType] = useState<SessionType>("löpning");
   const [targetDate, setTargetDate] = useState<string>("");
   const [reminder, setReminder] = useState(false);
   const [cadence, setCadence] = useState<"daily" | "weekly">("weekly");
-  const [processPeriod, setProcessPeriod] = useState<"week" | "month">("week");
-  const [processCount, setProcessCount] = useState<string>("3");
-  const [processMetric, setProcessMetric] = useState<"sessions" | "km">("sessions");
+  const [processPeriod, setProcessPeriod] = useState<"week" | "month">(search.period ?? "week");
+  const [processCount, setProcessCount] = useState<string>(search.type === "process" ? (search.value ?? "3") : "3");
+  const [processMetric, setProcessMetric] = useState<"sessions" | "km">(search.unit === "km" ? "km" : "sessions");
   // Subgoals (created in second pass)
   const [subGoals, setSubGoals] = useState<{ title: string; target_value: string; goal_type: GoalType; session_type: SessionType }[]>([]);
 
@@ -129,8 +136,22 @@ function NewGoal() {
 
   const canSave =
     (type === "process" ? Number(processCount) > 0 : Number(targetValue) > 0) &&
-    (type !== "strength" || exerciseId) &&
-    (type !== "event" || targetDate);
+    (type !== "strength" || !!exerciseId) &&
+    (type !== "event" || !!targetDate);
+
+  const disabledReason = !canSave
+    ? type === "strength" && !exerciseId
+      ? "Välj en övning"
+      : type === "strength" && !(Number(targetValue) > 0)
+        ? "Ange mål-vikt"
+        : type === "event" && !targetDate
+          ? "Välj måldatum"
+          : type === "process" && !(Number(processCount) > 0)
+            ? "Ange antal/distans per period"
+            : !(Number(targetValue) > 0)
+              ? type === "sessions" ? "Ange antal pass" : "Ange mål-distans"
+              : "Fyll i fälten ovan"
+    : null;
 
   return (
     <div className="space-y-4 pb-32">
@@ -404,10 +425,15 @@ function NewGoal() {
 
       <div className="fixed bottom-20 left-0 right-0 z-40 px-4">
         <div className="mx-auto max-w-xl">
+          {disabledReason && (
+            <p className="mb-2 rounded-md bg-card/95 px-3 py-2 text-center text-xs font-semibold text-amber-300 shadow-md">
+              {disabledReason} för att kunna spara
+            </p>
+          )}
           <Button
             onClick={() => mut.mutate()}
             disabled={!canSave || mut.isPending}
-            className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90"
+            className="h-14 w-full forge-gradient text-base font-bold text-primary-foreground ember-glow hover:opacity-90 disabled:opacity-50"
           >
             {mut.isPending ? "Sparar…" : "Skapa mål"}
           </Button>
