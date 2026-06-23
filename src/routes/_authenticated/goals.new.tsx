@@ -136,8 +136,22 @@ function NewGoal() {
 
   const canSave =
     (type === "process" ? Number(processCount) > 0 : Number(targetValue) > 0) &&
-    (type !== "strength" || exerciseId) &&
-    (type !== "event" || targetDate);
+    (type !== "strength" || !!exerciseId) &&
+    (type !== "event" || !!targetDate);
+
+  const disabledReason = !canSave
+    ? type === "strength" && !exerciseId
+      ? "Välj en övning"
+      : type === "strength" && !(Number(targetValue) > 0)
+        ? "Ange mål-vikt"
+        : type === "event" && !targetDate
+          ? "Välj måldatum"
+          : type === "process" && !(Number(processCount) > 0)
+            ? "Ange antal/distans per period"
+            : !(Number(targetValue) > 0)
+              ? type === "sessions" ? "Ange antal pass" : "Ange mål-distans"
+              : "Fyll i fälten ovan"
+    : null;
 
   return (
     <div className="space-y-4 pb-32">
