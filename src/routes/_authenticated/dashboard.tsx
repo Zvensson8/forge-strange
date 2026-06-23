@@ -268,7 +268,7 @@ function Dashboard() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </Link>
         ) : (
-          activeGoals.slice(0, 2).map((g) => <GoalCard key={g.id} goal={g} compact />)
+          activeGoals.slice(0, 2).map((g) => <GoalCard key={g.id} goal={g} compact subGoals={subsByParent.get(g.id) ?? []} />)
         )}
       </section>
 
