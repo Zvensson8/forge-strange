@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getWeeklyReview, getDashboard } from "@/lib/workout.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Flame, Trophy, Dumbbell, Footprints, Timer, TrendingUp, TrendingDown, Minus, RefreshCw, CalendarDays, AlertTriangle, Target, Moon } from "lucide-react";
+import { ArrowLeft, Sparkles, Flame, Trophy, Dumbbell, Footprints, Timer, TrendingUp, TrendingDown, Minus, RefreshCw, CalendarDays, AlertTriangle, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatDateSv } from "@/lib/forge-utils";
 import { Progress } from "@/components/ui/progress";
