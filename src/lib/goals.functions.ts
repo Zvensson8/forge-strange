@@ -1,27 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { goalSchema } from "@/lib/types";
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-const GoalInput = z.object({
-  title: z.string().min(1).max(120),
-  goal_type: z.enum(["strength", "distance", "sessions", "event", "process"]),
-  target_value: z.number().nonnegative(),
-  target_unit: z.string().min(1).max(20),
-  target_reps: z.number().int().positive().nullable().optional(),
-  exercise_id: z.string().uuid().nullable().optional(),
-  session_type: z.enum(["styrka", "cirkel", "löpning", "cykling", "promenad"]).nullable().optional(),
-  target_date: z.string().regex(ISO_DATE_RE).nullable().optional(),
-  start_date: z.string().regex(ISO_DATE_RE).optional(),
-  reminder_enabled: z.boolean().default(false),
-  reminder_cadence: z.enum(["daily", "weekly"]).default("weekly"),
-  notes: z.string().optional(),
-  parent_goal_id: z.string().uuid().nullable().optional(),
-  process_period: z.enum(["week", "month"]).nullable().optional(),
-  process_target_count: z.number().positive().nullable().optional(),
-  process_metric: z.enum(["sessions", "km"]).nullable().optional(),
-});
+const GoalInput = goalSchema;
 
 export const createGoal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

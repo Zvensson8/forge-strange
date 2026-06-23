@@ -199,6 +199,8 @@ async function updateStatsAndAchievements(
 
 // ---------- Server functions ----------
 
+import { logStrengthSchema, logDistanceSchema, logQuickSchema } from "@/lib/types";
+
 const StrengthSet = z.object({
   exercise_id: z.string().uuid(),
   set_index: z.number().int().min(1),
@@ -207,14 +209,7 @@ const StrengthSet = z.object({
   rpe: z.number().nullable().optional(),
 });
 
-const LogStrengthInput = z.object({
-  date: z.string().regex(ISO_DATE_RE),
-  template_id: z.string().uuid().nullable().optional(),
-  notes: z.string().optional(),
-  duration_minutes: z.number().int().nullable().optional(),
-  sets: z.array(StrengthSet).min(1),
-  session_type: z.enum(["styrka", "cirkel"]).default("styrka"),
-});
+const LogStrengthInput = logStrengthSchema;
 
 export const logStrengthOrCircuit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -296,14 +291,7 @@ export const logStrengthOrCircuit = createServerFn({ method: "POST" })
     };
   });
 
-const LogDistanceInput = z.object({
-  date: z.string().regex(ISO_DATE_RE),
-  session_type: z.enum(["löpning", "cykling", "promenad"]).default("löpning"),
-  distance_km: z.number().positive(),
-  duration_minutes: z.number().positive(),
-  effort_level: z.number().int().min(1).max(10).optional(),
-  route_notes: z.string().optional(),
-});
+const LogDistanceInput = logDistanceSchema;
 
 export const logRunning = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -566,13 +554,7 @@ export const clearAllMyData = createServerFn({ method: "POST" })
 
 // ---------- Quick minimum session (low-motivation days) ----------
 
-const LogQuickInput = z.object({
-  date: z.string().regex(ISO_DATE_RE),
-  session_type: z.enum(["styrka", "cirkel", "löpning"]),
-  duration_minutes: z.number().int().min(5).max(60).default(15),
-  energy_level: z.number().int().min(1).max(10).optional(),
-  notes: z.string().optional(),
-});
+const LogQuickInput = logQuickSchema;
 
 export const logQuickSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
