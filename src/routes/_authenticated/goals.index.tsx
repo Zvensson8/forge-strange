@@ -84,7 +84,7 @@ function GoalsList() {
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktiva</p>
           {active.map((g) => (
-            <GoalCard key={g.id} goal={g} />
+            <GoalCard key={g.id} goal={g} subGoals={subsByParent.get(g.id) ?? []} />
           ))}
         </div>
       )}
@@ -93,7 +93,7 @@ function GoalsList() {
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Klart</p>
           {completed.map((g) => (
-            <GoalCard key={g.id} goal={g} compact />
+            <GoalCard key={g.id} goal={g} compact subGoals={subsByParent.get(g.id) ?? []} />
           ))}
         </div>
       )}
