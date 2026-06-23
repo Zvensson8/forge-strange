@@ -29,15 +29,7 @@ const HEATMAP_FILTERS: Filter[] = ["alla", "styrka", "cirkel", "löpning", "cykl
 function Dashboard() {
   const navigate = useNavigate();
   const getDash = useServerFn(getDashboard);
-  const seedFn = useServerFn(seedDemoIfEmpty);
   const [filter, setFilter] = useState<Filter>("alla");
-
-  const seedMut = useMutation({
-    mutationFn: () => seedFn(),
-    onSuccess: (r) => {
-      if (r.seeded) dash.refetch();
-    },
-  });
 
   const dash = useQuery({
     queryKey: ["dashboard"],
