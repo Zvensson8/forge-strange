@@ -49,6 +49,7 @@ function NewGoal() {
   const [cadence, setCadence] = useState<"daily" | "weekly">("weekly");
   const [processPeriod, setProcessPeriod] = useState<"week" | "month">("week");
   const [processCount, setProcessCount] = useState<string>("3");
+  const [processMetric, setProcessMetric] = useState<"sessions" | "km">("sessions");
   // Subgoals (created in second pass)
   const [subGoals, setSubGoals] = useState<{ title: string; target_value: string; goal_type: GoalType; session_type: SessionType }[]>([]);
 
