@@ -44,18 +44,19 @@ function NewGoal() {
   const fn = useServerFn(createGoal);
   const ex = useQuery({ queryKey: ["exercises"], queryFn: () => getEx() });
 
-  const [type, setType] = useState<GoalType>("strength");
+  const search = Route.useSearch();
+  const [type, setType] = useState<GoalType>(search.type ?? "strength");
   const [title, setTitle] = useState("");
   const [exerciseId, setExerciseId] = useState<string>("");
-  const [targetValue, setTargetValue] = useState<string>("");
+  const [targetValue, setTargetValue] = useState<string>(search.value ?? "");
   const [targetReps, setTargetReps] = useState<string>("5");
   const [sessionType, setSessionType] = useState<SessionType>("löpning");
   const [targetDate, setTargetDate] = useState<string>("");
   const [reminder, setReminder] = useState(false);
   const [cadence, setCadence] = useState<"daily" | "weekly">("weekly");
-  const [processPeriod, setProcessPeriod] = useState<"week" | "month">("week");
-  const [processCount, setProcessCount] = useState<string>("3");
-  const [processMetric, setProcessMetric] = useState<"sessions" | "km">("sessions");
+  const [processPeriod, setProcessPeriod] = useState<"week" | "month">(search.period ?? "week");
+  const [processCount, setProcessCount] = useState<string>(search.type === "process" ? (search.value ?? "3") : "3");
+  const [processMetric, setProcessMetric] = useState<"sessions" | "km">(search.unit === "km" ? "km" : "sessions");
   // Subgoals (created in second pass)
   const [subGoals, setSubGoals] = useState<{ title: string; target_value: string; goal_type: GoalType; session_type: SessionType }[]>([]);
 
