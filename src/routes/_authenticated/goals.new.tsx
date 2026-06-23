@@ -166,8 +166,8 @@ function NewGoal() {
       session_type: values.goal_type === "strength" ? null : values.session_type,
       target_date: values.target_date || null,
       start_date: todayISO(),
-      reminder_enabled: values.reminder_enabled,
-      reminder_cadence: values.reminder_cadence,
+      reminder_enabled: !!values.reminder_enabled,
+      reminder_cadence: values.reminder_cadence ?? "weekly",
       process_period: values.goal_type === "process" ? values.process_period : null,
       process_target_count:
         values.goal_type === "process" ? Number(values.process_target_count) : null,
@@ -177,7 +177,7 @@ function NewGoal() {
     try {
       const parent = await createMut.mutateAsync(payload);
       // Sub-goals (sequential, share parent_goal_id)
-      for (const sg of values.sub_goals) {
+      for (const sg of values.sub_goals ?? []) {
         if (!sg.title || !sg.target_value) continue;
         const sgUnit = sg.goal_type === "distance" ? "km" : "pass";
         await createMut.mutateAsync({
